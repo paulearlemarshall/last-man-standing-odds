@@ -1,0 +1,5 @@
+{
+  "name": "Premier League Odds Finder",
+  "description": "An application to find and display the latest English Premiership football odds using The Odds API.",
+  "requestFramePermissions": []
+}
