@@ -77,7 +77,15 @@ export async function fetchOddsFromApi(
             throw new Error(`API returned ${response.status}: ${response.statusText}${details ? ` - ${details}` : ''}`);
         }
 
-        const freshData: ApiMatch[] = await response.json();
+        const responseText = await response.text();
+        let freshData: ApiMatch[];
+
+        try {
+            freshData = JSON.parse(responseText) as ApiMatch[];
+        } catch (_error) {
+            throw new Error(`API returned non-JSON content from ${requestUrl}: ${responseText.slice(0, 120)}`);
+        }
+
         mergeDataIntoMaster(freshData);
 
         // Update Cache
