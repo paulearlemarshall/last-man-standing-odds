@@ -63,6 +63,7 @@ const App: React.FC = () => {
     const [currentSportClass, setCurrentSportClass] = useState<string>(() => getInitialSportClass());
     const [currentLeague, setCurrentLeague] = useState(() => getInitialLeague(getInitialSportClass()));
     const [selectedRegions, setSelectedRegions] = useState<Region[]>(() => getInitialRegions());
+    const [currentTime, setCurrentTime] = useState(() => new Date());
 
     const {
         apiData,
@@ -90,6 +91,28 @@ const App: React.FC = () => {
         const timeoutId = window.setTimeout(() => setShareMessage(null), 2500);
         return () => window.clearTimeout(timeoutId);
     }, [shareMessage]);
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => window.clearInterval(intervalId);
+    }, []);
+
+    const ukTimeLabel = useMemo(
+        () =>
+            currentTime.toLocaleString('en-GB', {
+                weekday: 'short',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Europe/London',
+                timeZoneName: 'short',
+            }),
+        [currentTime]
+    );
 
     const teamNameToIndex = useMemo(() => new Map(allTeams.map((team, index) => [team, index])), [allTeams]);
 
@@ -176,6 +199,9 @@ const App: React.FC = () => {
         <div className="bg-gray-900 text-white min-h-screen font-sans">
             <Header title={currentLeague.name} logoUrl={currentLeague.logo} />
             <div className="container mx-auto p-4 sm:p-6">
+                <div className="mb-4 text-center text-sm text-green-300">
+                    UK time: <span className="font-semibold">{ukTimeLabel}</span>
+                </div>
                 <div className="flex flex-col items-center justify-center gap-4 py-4 px-6 mb-8 bg-gray-800/50 border-y-2 border-green-500/30 rounded-lg">
                     <div className="flex flex-wrap items-center justify-center gap-4">
                         <div className="relative">
