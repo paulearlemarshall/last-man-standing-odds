@@ -7,10 +7,22 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    const apiProxyTarget = (env.VITE_API_PROXY_TARGET || '').trim();
     return {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        ...(apiProxyTarget
+          ? {
+              proxy: {
+                '/api': {
+                  target: apiProxyTarget,
+                  changeOrigin: true,
+                  secure: apiProxyTarget.startsWith('https://'),
+                },
+              },
+            }
+          : {}),
       },
       esbuild: {
         jsx: 'transform',

@@ -66,8 +66,11 @@ export async function fetchOddsFromApi(
             markets: 'h2h'
         });
 
-        console.log(`[API] Fetching missing regions via /api/odds: ${sortedRegionsToFetch}`);
-        const response = await fetch(`/api/odds?${params.toString()}`);
+        const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
+        const apiPath = `/api/odds?${params.toString()}`;
+        const requestUrl = apiBaseUrl ? `${apiBaseUrl}${apiPath}` : apiPath;
+        console.log(`[API] Fetching missing regions via ${requestUrl}`);
+        const response = await fetch(requestUrl);
         
         if (!response.ok) {
             const details = await response.text();
