@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { storeOddsSnapshot } from './_lib/oddsSnapshotsStore';
+import { storeOddsSnapshot } from './_lib/oddsSnapshotsStore.js';
 
 type Region = 'uk' | 'us' | 'eu' | 'au';
 

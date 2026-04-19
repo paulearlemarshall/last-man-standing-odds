@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { getOddsSnapshotById, listOddsSnapshots } from './_lib/oddsSnapshotsStore';
+import { getOddsSnapshotById, listOddsSnapshots } from './_lib/oddsSnapshotsStore.js';
 
 function normalizeQueryValue(value: string | string[] | undefined): string {
   if (!value) return '';
