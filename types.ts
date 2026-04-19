@@ -104,3 +104,17 @@ export interface GroundingSource {
     uri: string;
     title: string;
 }
+
+export interface OddsSnapshotSummary {
+    id: number;
+    createdAt: string;
+    sportKey: string;
+    regions: string;
+    markets: string;
+    matchCount: number;
+}
+
+export interface OddsSnapshotDetail extends OddsSnapshotSummary {
+    sourceUrl: string;
+    payload: unknown;
+}

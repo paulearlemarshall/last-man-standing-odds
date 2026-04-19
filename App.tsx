@@ -11,6 +11,7 @@ import MatchWeekendView from './components/MatchWeekendView';
 import DebugPanel from './components/DebugPanel';
 import ArbitragePanel from './components/ArbitragePanel';
 import DecisionLogPanel from './components/DecisionLogPanel';
+import OddsHistoryPanel from './components/OddsHistoryPanel';
 
 import { SPORTS_DIRECTORY } from './constants/sportsDirectory';
 import { useOddsData } from './hooks/useOddsData';
@@ -248,6 +249,7 @@ const App: React.FC = () => {
                             <DebugPanel data={apiData} apiLatency={apiLatency} quotaCost={quotaCost} />
                         </>
                     )}
+                    <OddsHistoryPanel />
                 </main>
             </div>
         </div>

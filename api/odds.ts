@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { storeOddsSnapshot } from './_lib/oddsSnapshotsStore';
 
 type Region = 'uk' | 'us' | 'eu' | 'au';
 
@@ -68,6 +69,18 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
         status: response.status,
         details: responseText,
       });
+    }
+
+    try {
+      await storeOddsSnapshot({
+        sportKey: sportKeyRaw,
+        regions: regions.join(','),
+        markets,
+        sourceUrl: upstreamUrl,
+        responseText,
+      });
+    } catch (persistError) {
+      console.error('Failed to store odds snapshot:', persistError);
     }
 
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=240');
