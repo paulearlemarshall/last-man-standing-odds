@@ -47,17 +47,17 @@ type SnapshotStats = {
 };
 
 type NormalizedMarketPoint = {
-  matchId: string;
-  commenceTime: string;
-  homeTeam: string;
-  awayTeam: string;
-  bookmakerKey: string;
-  bookmakerTitle: string;
-  outcomeName: string;
-  outcomeSide: 'home' | 'away' | 'draw';
-  decimalOdds: number;
-  impliedProbRaw: number;
-  impliedProbNoVig: number;
+  match_id: string;
+  commence_time: string;
+  home_team: string;
+  away_team: string;
+  bookmaker_key: string;
+  bookmaker_title: string;
+  outcome_name: string;
+  outcome_side: 'home' | 'away' | 'draw';
+  decimal_odds: number;
+  implied_prob_raw: number;
+  implied_prob_novig: number;
 };
 
 type MatchForInsight = {
@@ -377,17 +377,17 @@ const parseSnapshotPayloadForMarketPoints = (payload: unknown): NormalizedMarket
 
       normalizedOutcomes.forEach((outcome) => {
         points.push({
-          matchId: match.id as string,
-          commenceTime: match.commence_time as string,
-          homeTeam: match.home_team as string,
-          awayTeam: match.away_team as string,
-          bookmakerKey: bookmaker.key as string,
-          bookmakerTitle: bookmaker.title as string,
-          outcomeName: outcome.outcomeName,
-          outcomeSide: outcome.outcomeSide,
-          decimalOdds: outcome.decimalOdds,
-          impliedProbRaw: outcome.impliedProbRaw,
-          impliedProbNoVig: outcome.impliedProbRaw / overround,
+          match_id: match.id as string,
+          commence_time: match.commence_time as string,
+          home_team: match.home_team as string,
+          away_team: match.away_team as string,
+          bookmaker_key: bookmaker.key as string,
+          bookmaker_title: bookmaker.title as string,
+          outcome_name: outcome.outcomeName,
+          outcome_side: outcome.outcomeSide,
+          decimal_odds: outcome.decimalOdds,
+          implied_prob_raw: outcome.impliedProbRaw,
+          implied_prob_novig: outcome.impliedProbRaw / overround,
         });
       });
     });
