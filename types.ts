@@ -182,6 +182,10 @@ export interface TeamMovementSummary {
 export interface TeamFormAnalytics {
     team: string;
     lookbackSnapshots: number;
+    bucketMinutes: number;
+    minDelta: number;
+    effectiveSampleBuckets: number;
+    timeSpanHours: number | null;
     sampleQuotes: number;
     totalMatches: number;
     avgImpliedProb: number | null;
@@ -212,6 +216,10 @@ export interface HeadToHeadAnalytics {
     teamA: string;
     teamB: string;
     lookbackSnapshots: number;
+    bucketMinutes: number;
+    minDelta: number;
+    effectiveSampleBuckets: number;
+    timeSpanHours: number | null;
     sampleQuotes: number;
     totalMatches: number;
     currentEdgeA: number | null;

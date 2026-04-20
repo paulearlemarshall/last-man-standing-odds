@@ -15,6 +15,9 @@ import CollapsibleSection from './CollapsibleSection';
 
 type AnalyticsTab = 'raw' | 'team' | 'headToHead';
 
+const ANALYTICS_BUCKET_MINUTES = 15;
+const ANALYTICS_MIN_DELTA = 0.002;
+
 const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
   <span className="group relative inline-flex items-center">
     <span
@@ -225,7 +228,7 @@ const OddsHistoryPanel: React.FC = () => {
       setAnalyticsError(null);
       try {
         const response = await fetch(
-          `/api/odds-analytics?snapshotId=${selectedSnapshotId}&team=${encodeURIComponent(selectedTeam)}&lookback=40`,
+          `/api/odds-analytics?snapshotId=${selectedSnapshotId}&team=${encodeURIComponent(selectedTeam)}&lookback=40&bucketMinutes=${ANALYTICS_BUCKET_MINUTES}&minDelta=${ANALYTICS_MIN_DELTA}`,
           { signal: abortController.signal }
         );
 
@@ -264,7 +267,7 @@ const OddsHistoryPanel: React.FC = () => {
       setAnalyticsError(null);
       try {
         const response = await fetch(
-          `/api/odds-analytics?snapshotId=${selectedSnapshotId}&teamA=${encodeURIComponent(teamA)}&teamB=${encodeURIComponent(teamB)}&lookback=40`,
+          `/api/odds-analytics?snapshotId=${selectedSnapshotId}&teamA=${encodeURIComponent(teamA)}&teamB=${encodeURIComponent(teamB)}&lookback=40&bucketMinutes=${ANALYTICS_BUCKET_MINUTES}&minDelta=${ANALYTICS_MIN_DELTA}`,
           { signal: abortController.signal }
         );
 
@@ -493,6 +496,13 @@ const OddsHistoryPanel: React.FC = () => {
                   <p className="text-xs text-gray-400">Model view: team vs whole field + per-opponent edges.</p>
                 </div>
 
+                {teamForm && (
+                  <p className="text-xs text-gray-400">
+                    Time-series controls: {teamForm.bucketMinutes}-minute buckets, min delta {teamForm.minDelta}. Effective buckets: {teamForm.effectiveSampleBuckets}
+                    {teamForm.timeSpanHours !== null ? ` over ${teamForm.timeSpanHours.toFixed(1)}h` : ''}.
+                  </p>
+                )}
+
                 {loadingAnalytics && <p className="text-sm text-gray-300">Loading team-form model...</p>}
                 {analyticsError && <p className="text-sm text-red-300">{analyticsError}</p>}
 
@@ -688,6 +698,13 @@ const OddsHistoryPanel: React.FC = () => {
 
                 {teamA === teamB && (
                   <p className="text-sm text-yellow-300">Choose two different teams to model head-to-head edges.</p>
+                )}
+
+                {headToHead && (
+                  <p className="text-xs text-gray-400">
+                    Time-series controls: {headToHead.bucketMinutes}-minute buckets, min delta {headToHead.minDelta}. Effective buckets: {headToHead.effectiveSampleBuckets}
+                    {headToHead.timeSpanHours !== null ? ` over ${headToHead.timeSpanHours.toFixed(1)}h` : ''}.
+                  </p>
                 )}
 
                 {loadingAnalytics && <p className="text-sm text-gray-300">Loading head-to-head model...</p>}

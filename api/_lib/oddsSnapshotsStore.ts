@@ -169,6 +169,10 @@ export interface TeamMovementSummary {
 export interface TeamFormAnalytics {
   team: string;
   lookbackSnapshots: number;
+  bucketMinutes: number;
+  minDelta: number;
+  effectiveSampleBuckets: number;
+  timeSpanHours: number | null;
   sampleQuotes: number;
   totalMatches: number;
   avgImpliedProb: number | null;
@@ -199,6 +203,10 @@ export interface HeadToHeadAnalytics {
   teamA: string;
   teamB: string;
   lookbackSnapshots: number;
+  bucketMinutes: number;
+  minDelta: number;
+  effectiveSampleBuckets: number;
+  timeSpanHours: number | null;
   sampleQuotes: number;
   totalMatches: number;
   currentEdgeA: number | null;
@@ -248,6 +256,22 @@ const round4 = (value: number | null): number | null =>
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
+
+const toBucketMs = (isoDateTime: string, bucketMinutes: number): number => {
+  const timestamp = new Date(isoDateTime).getTime();
+  const bucketMs = Math.max(1, bucketMinutes) * 60 * 1000;
+  return Math.floor(timestamp / bucketMs) * bucketMs;
+};
+
+const computeTimeSpanHours = (values: string[]): number | null => {
+  if (values.length < 2) return null;
+  const sorted = values
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (sorted.length < 2) return null;
+  return (sorted[sorted.length - 1] - sorted[0]) / (1000 * 60 * 60);
+};
 
 const toSummary = (row: SnapshotRow): OddsSnapshotSummary => ({
   id: Number(row.id),
@@ -575,6 +599,147 @@ const buildSnapshotStats = (points: TeamMarketPoint[]): SnapshotStats[] => {
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 };
 
+const bucketAndFilterTeamPoints = (
+  points: TeamMarketPoint[],
+  bucketMinutes: number,
+  minDelta: number
+): TeamMarketPoint[] => {
+  const snapshotMatchAggregate = new Map<
+    string,
+    {
+      snapshotId: number;
+      createdAt: string;
+      matchId: string;
+      commenceTime: string;
+      homeTeam: string;
+      awayTeam: string;
+      impliedProbSum: number;
+      decimalOddsSum: number;
+      count: number;
+    }
+  >();
+
+  points.forEach((point) => {
+    const key = `${point.snapshotId}::${point.matchId}`;
+    const current = snapshotMatchAggregate.get(key) || {
+      snapshotId: point.snapshotId,
+      createdAt: point.createdAt,
+      matchId: point.matchId,
+      commenceTime: point.commenceTime,
+      homeTeam: point.homeTeam,
+      awayTeam: point.awayTeam,
+      impliedProbSum: 0,
+      decimalOddsSum: 0,
+      count: 0,
+    };
+
+    current.impliedProbSum += point.impliedProbNoVig;
+    current.decimalOddsSum += point.decimalOdds;
+    current.count += 1;
+    snapshotMatchAggregate.set(key, current);
+  });
+
+  const snapshotMatchPoints: TeamMarketPoint[] = Array.from(snapshotMatchAggregate.values()).map((item) => ({
+    snapshotId: item.snapshotId,
+    createdAt: item.createdAt,
+    matchId: item.matchId,
+    commenceTime: item.commenceTime,
+    homeTeam: item.homeTeam,
+    awayTeam: item.awayTeam,
+    impliedProbNoVig: item.count > 0 ? item.impliedProbSum / item.count : 0,
+    decimalOdds: item.count > 0 ? item.decimalOddsSum / item.count : 0,
+  }));
+
+  const latestByMatchBucket = new Map<string, TeamMarketPoint>();
+  snapshotMatchPoints.forEach((point) => {
+    const bucketMs = toBucketMs(point.createdAt, bucketMinutes);
+    const key = `${point.matchId}::${bucketMs}`;
+    const existing = latestByMatchBucket.get(key);
+    if (!existing || new Date(point.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+      latestByMatchBucket.set(key, point);
+    }
+  });
+
+  const byMatch = new Map<string, TeamMarketPoint[]>();
+  Array.from(latestByMatchBucket.values()).forEach((point) => {
+    const matchBucket = byMatch.get(point.matchId) || [];
+    matchBucket.push(point);
+    byMatch.set(point.matchId, matchBucket);
+  });
+
+  const filtered: TeamMarketPoint[] = [];
+  byMatch.forEach((matchPoints) => {
+    const sorted = matchPoints
+      .slice()
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    let lastKept: TeamMarketPoint | null = null;
+    sorted.forEach((point, index) => {
+      if (index === 0) {
+        filtered.push(point);
+        lastKept = point;
+        return;
+      }
+
+      if (!lastKept) {
+        filtered.push(point);
+        lastKept = point;
+        return;
+      }
+
+      const delta = Math.abs(point.impliedProbNoVig - lastKept.impliedProbNoVig);
+      if (delta >= minDelta) {
+        filtered.push(point);
+        lastKept = point;
+      }
+    });
+  });
+
+  return filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+};
+
+const buildBucketTimelineStats = (points: TeamMarketPoint[], bucketMinutes: number): SnapshotStats[] => {
+  const buckets = new Map<
+    number,
+    {
+      latestSnapshotId: number;
+      latestCreatedAt: string;
+      points: TeamMarketPoint[];
+    }
+  >();
+
+  points.forEach((point) => {
+    const bucketMs = toBucketMs(point.createdAt, bucketMinutes);
+    const bucket = buckets.get(bucketMs) || {
+      latestSnapshotId: point.snapshotId,
+      latestCreatedAt: point.createdAt,
+      points: [],
+    };
+    bucket.points.push(point);
+    if (new Date(point.createdAt).getTime() > new Date(bucket.latestCreatedAt).getTime()) {
+      bucket.latestSnapshotId = point.snapshotId;
+      bucket.latestCreatedAt = point.createdAt;
+    }
+    buckets.set(bucketMs, bucket);
+  });
+
+  return Array.from(buckets.entries())
+    .map(([bucketMs, bucket]) => {
+      const matchCount = new Set(bucket.points.map((point) => point.matchId)).size;
+      const sampleQuotes = bucket.points.length;
+      return {
+        snapshotId: bucket.latestSnapshotId,
+        createdAt: new Date(bucketMs).toISOString(),
+        sampleQuotes,
+        matchCount,
+        avgImpliedProb: average(bucket.points.map((point) => point.impliedProbNoVig)),
+        avgOdds: average(bucket.points.map((point) => point.decimalOdds)),
+        avgBookmakersPerMatch: matchCount > 0 ? sampleQuotes / matchCount : null,
+      };
+    })
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+};
+
 const toTeamMarketPoint = (row: TeamMarketPointRow): TeamMarketPoint => ({
   snapshotId: Number(row.snapshot_id),
   createdAt: row.created_at,
@@ -854,7 +1019,9 @@ export const listTrackedTeamsForSnapshot = async (snapshotId: number): Promise<s
 export const getTeamFormAnalytics = async (
   snapshotId: number,
   team: string,
-  lookbackSnapshots = 30
+  lookbackSnapshots = 30,
+  bucketMinutes = 15,
+  minDelta = 0.002
 ): Promise<TeamFormAnalytics | null> => {
   await ensureSnapshotsSchema();
 
@@ -885,7 +1052,11 @@ export const getTeamFormAnalytics = async (
     return null;
   }
 
-  const points = rows.map(toTeamMarketPoint);
+  const rawPoints = rows.map(toTeamMarketPoint);
+  const points = bucketAndFilterTeamPoints(rawPoints, bucketMinutes, minDelta);
+  if (!points.length) {
+    return null;
+  }
 
   const matchSnapshotMap = new Map<
     string,
@@ -967,7 +1138,7 @@ export const getTeamFormAnalytics = async (
     )
     .sort((a, b) => Math.abs(b.impliedProbDelta) - Math.abs(a.impliedProbDelta));
 
-  const timelineStats = buildSnapshotStats(points);
+  const timelineStats = buildBucketTimelineStats(points, bucketMinutes);
   const first = timelineStats[0];
   const last = timelineStats[timelineStats.length - 1];
 
@@ -998,7 +1169,7 @@ export const getTeamFormAnalytics = async (
 
   const opponents = Array.from(opponentMap.entries())
     .map(([opponent, opponentPoints]) => {
-      const stats = buildSnapshotStats(opponentPoints);
+      const stats = buildBucketTimelineStats(opponentPoints, bucketMinutes);
       const firstPoint = stats[0];
       const lastPoint = stats[stats.length - 1];
       const trendDelta =
@@ -1024,6 +1195,7 @@ export const getTeamFormAnalytics = async (
 
   const totalMatches = new Set(points.map((point) => point.matchId)).size;
   const confidenceScore = buildConfidenceScore(points.length, timelineStats.length, volatility);
+  const timeSpanHours = computeTimeSpanHours(timelineStats.map((point) => point.createdAt));
 
   const movementThreshold = 0.0005;
   const movedUpMatches = matchMovements.filter((movement) => movement.impliedProbDelta > movementThreshold).length;
@@ -1039,6 +1211,10 @@ export const getTeamFormAnalytics = async (
   return {
     team: normalizedTeam,
     lookbackSnapshots: contextSnapshots.length,
+    bucketMinutes,
+    minDelta,
+    effectiveSampleBuckets: timelineStats.length,
+    timeSpanHours: round4(timeSpanHours),
     sampleQuotes: points.length,
     totalMatches,
     avgImpliedProb: round4(avgImpliedProb),
@@ -1090,7 +1266,9 @@ export const getHeadToHeadAnalytics = async (
   snapshotId: number,
   teamA: string,
   teamB: string,
-  lookbackSnapshots = 30
+  lookbackSnapshots = 30,
+  bucketMinutes = 15,
+  minDelta = 0.002
 ): Promise<HeadToHeadAnalytics | null> => {
   await ensureSnapshotsSchema();
 
@@ -1122,12 +1300,19 @@ export const getHeadToHeadAnalytics = async (
     return null;
   }
 
-  const pointsA = rows
+  const rawPointsA = rows
     .filter((row) => row.outcome_name === normalizedTeamA)
     .map((row) => toTeamMarketPoint(row));
-  const pointsB = rows
+  const rawPointsB = rows
     .filter((row) => row.outcome_name === normalizedTeamB)
     .map((row) => toTeamMarketPoint(row));
+
+  const pointsA = bucketAndFilterTeamPoints(rawPointsA, bucketMinutes, minDelta);
+  const pointsB = bucketAndFilterTeamPoints(rawPointsB, bucketMinutes, minDelta);
+
+  if (!pointsA.length || !pointsB.length) {
+    return null;
+  }
 
   const directRows = rows.filter(
     (row) =>
@@ -1135,17 +1320,18 @@ export const getHeadToHeadAnalytics = async (
       (row.home_team === normalizedTeamB && row.away_team === normalizedTeamA)
   );
 
-  const timelineA = buildSnapshotStats(pointsA);
-  const timelineB = buildSnapshotStats(pointsB);
-  const bySnapshotA = new Map(timelineA.map((point) => [point.snapshotId, point]));
-  const bySnapshotB = new Map(timelineB.map((point) => [point.snapshotId, point]));
+  const timelineA = buildBucketTimelineStats(pointsA, bucketMinutes);
+  const timelineB = buildBucketTimelineStats(pointsB, bucketMinutes);
+  const byBucketA = new Map(timelineA.map((point) => [point.createdAt, point]));
+  const byBucketB = new Map(timelineB.map((point) => [point.createdAt, point]));
+  const bucketKeys = Array.from(new Set([...byBucketA.keys(), ...byBucketB.keys()])).sort(
+    (a, b) => new Date(a).getTime() - new Date(b).getTime()
+  );
 
-  const timeline: HeadToHeadTimelinePoint[] = contextSnapshots
-    .slice()
-    .reverse()
-    .map((snapshot) => {
-      const pointA = bySnapshotA.get(Number(snapshot.id));
-      const pointB = bySnapshotB.get(Number(snapshot.id));
+  const timeline: HeadToHeadTimelinePoint[] = bucketKeys
+    .map((bucketCreatedAt) => {
+      const pointA = byBucketA.get(bucketCreatedAt);
+      const pointB = byBucketB.get(bucketCreatedAt);
 
       const avgImpliedProbA = pointA?.avgImpliedProb ?? null;
       const avgImpliedProbB = pointB?.avgImpliedProb ?? null;
@@ -1153,8 +1339,8 @@ export const getHeadToHeadAnalytics = async (
         avgImpliedProbA !== null && avgImpliedProbB !== null ? avgImpliedProbA - avgImpliedProbB : null;
 
       return {
-        snapshotId: Number(snapshot.id),
-        createdAt: snapshot.created_at,
+        snapshotId: pointA?.snapshotId || pointB?.snapshotId || 0,
+        createdAt: bucketCreatedAt,
         avgImpliedProbA: round4(avgImpliedProbA),
         avgImpliedProbB: round4(avgImpliedProbB),
         edgeA: round4(edgeA),
@@ -1181,11 +1367,16 @@ export const getHeadToHeadAnalytics = async (
     timeline.map((point) => point.edgeA).filter((edge): edge is number => edge !== null)
   );
   const confidenceScore = buildConfidenceScore(totalQuotes, timeline.length, volatility);
+  const timeSpanHours = computeTimeSpanHours(timeline.map((point) => point.createdAt));
 
   return {
     teamA: normalizedTeamA,
     teamB: normalizedTeamB,
     lookbackSnapshots: contextSnapshots.length,
+    bucketMinutes,
+    minDelta,
+    effectiveSampleBuckets: timeline.length,
+    timeSpanHours: round4(timeSpanHours),
     sampleQuotes: totalQuotes,
     totalMatches,
     currentEdgeA: round4(last.edgeA),
