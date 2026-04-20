@@ -14,6 +14,28 @@ import CollapsibleSection from './CollapsibleSection';
 
 type AnalyticsTab = 'raw' | 'team' | 'headToHead';
 
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
+  <span className="group relative inline-flex items-center">
+    <span
+      tabIndex={0}
+      className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-500 text-[10px] text-gray-300 cursor-help"
+      aria-label={text}
+    >
+      ?
+    </span>
+    <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-md border border-gray-700 bg-gray-900 px-2 py-1 text-[11px] leading-snug text-gray-100 shadow-lg group-hover:block group-focus-within:block">
+      {text}
+    </span>
+  </span>
+);
+
+const MetricLabel: React.FC<{ label: string; help: string }> = ({ label, help }) => (
+  <p className="text-xs text-gray-400 flex items-center">
+    {label}
+    <InfoTooltip text={help} />
+  </p>
+);
+
 const formatSnapshotLabel = (snapshot: OddsSnapshotSummary) => {
   const createdAt = new Date(snapshot.createdAt).toLocaleString('en-GB', {
     hour12: false,
@@ -392,15 +414,24 @@ const OddsHistoryPanel: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Avg home-odds delta</p>
+                        <MetricLabel
+                          label="Avg home-odds delta"
+                          help="Change in average best available home-team decimal odds across the selected lookback window. Positive means home odds drifted out; negative means shortened."
+                        />
                         <p className="text-lg text-white">{renderDelta(selectedSnapshot.insights.avgHomeOddsDelta)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Avg away-odds delta</p>
+                        <MetricLabel
+                          label="Avg away-odds delta"
+                          help="Change in average best available away-team decimal odds over the lookback. Positive means away odds increased; negative means they shortened."
+                        />
                         <p className="text-lg text-white">{renderDelta(selectedSnapshot.insights.avgAwayOddsDelta)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Avg bookmakers/match delta</p>
+                        <MetricLabel
+                          label="Avg bookmakers/match delta"
+                          help="Change in market depth (number of bookmakers quoting each tracked fixture). Higher values generally indicate stronger market coverage."
+                        />
                         <p className="text-lg text-white">
                           {renderDelta(selectedSnapshot.insights.avgBookmakersPerMatchDelta)}
                         </p>
@@ -468,19 +499,31 @@ const OddsHistoryPanel: React.FC = () => {
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Current implied prob</p>
+                        <MetricLabel
+                          label="Current implied prob"
+                          help="Latest no-vig implied win probability for the selected team, averaged from available bookmaker prices."
+                        />
                         <p className="text-lg text-white">{formatMetric(teamForm.currentImpliedProb)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Trend delta</p>
+                        <MetricLabel
+                          label="Trend delta"
+                          help="Difference between first and latest implied probability in the timeline. Positive suggests improving market view for the team."
+                        />
                         <p className="text-lg text-white">{renderDelta(teamForm.impliedProbDelta)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Volatility</p>
+                        <MetricLabel
+                          label="Volatility"
+                          help="Standard deviation of the team's timeline implied probabilities. Higher volatility means less stable market sentiment."
+                        />
                         <p className="text-lg text-white">{formatMetric(teamForm.volatility)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Confidence</p>
+                        <MetricLabel
+                          label="Confidence"
+                          help="Composite confidence score based on sample size, number of snapshots, and volatility. Higher is generally more reliable."
+                        />
                         <p className="text-lg text-white">{(teamForm.confidenceScore * 100).toFixed(0)}%</p>
                       </div>
                     </div>
@@ -594,19 +637,31 @@ const OddsHistoryPanel: React.FC = () => {
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Current edge ({headToHead.teamA})</p>
+                        <MetricLabel
+                          label={`Current edge (${headToHead.teamA})`}
+                          help="Latest implied probability edge: Team A implied probability minus Team B implied probability. Positive favors Team A."
+                        />
                         <p className="text-lg text-white">{renderDelta(headToHead.currentEdgeA)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Edge trend</p>
+                        <MetricLabel
+                          label="Edge trend"
+                          help="Change in the Team A edge from earliest to latest snapshot in the selected lookback window."
+                        />
                         <p className="text-lg text-white">{renderDelta(headToHead.edgeDeltaA)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Avg prob ({headToHead.teamA})</p>
+                        <MetricLabel
+                          label={`Avg prob (${headToHead.teamA})`}
+                          help="Average no-vig implied probability for Team A across the modeled snapshots."
+                        />
                         <p className="text-lg text-white">{formatMetric(headToHead.avgImpliedProbA)}</p>
                       </div>
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
-                        <p className="text-xs text-gray-400">Confidence</p>
+                        <MetricLabel
+                          label="Confidence"
+                          help="Composite reliability score for this Team A vs Team B model, combining sample volume, timeline depth, and volatility."
+                        />
                         <p className="text-lg text-white">{(headToHead.confidenceScore * 100).toFixed(0)}%</p>
                       </div>
                     </div>
