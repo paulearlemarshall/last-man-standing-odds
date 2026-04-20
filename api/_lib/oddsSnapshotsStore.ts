@@ -975,10 +975,6 @@ export const getHeadToHeadAnalytics = async (
     FROM odds_market_points
     WHERE snapshot_id = ANY(${snapshotIds}::bigint[])
       AND outcome_name IN (${normalizedTeamA}, ${normalizedTeamB})
-      AND (
-        (home_team = ${normalizedTeamA} AND away_team = ${normalizedTeamB})
-        OR (home_team = ${normalizedTeamB} AND away_team = ${normalizedTeamA})
-      )
       AND outcome_side IN ('home', 'away')
     ORDER BY captured_at ASC
   `) as (TeamMarketPointRow & { outcome_name: string })[];
@@ -993,6 +989,12 @@ export const getHeadToHeadAnalytics = async (
   const pointsB = rows
     .filter((row) => row.outcome_name === normalizedTeamB)
     .map((row) => toTeamMarketPoint(row));
+
+  const directRows = rows.filter(
+    (row) =>
+      (row.home_team === normalizedTeamA && row.away_team === normalizedTeamB) ||
+      (row.home_team === normalizedTeamB && row.away_team === normalizedTeamA)
+  );
 
   const timelineA = buildSnapshotStats(pointsA);
   const timelineB = buildSnapshotStats(pointsB);
@@ -1035,7 +1037,7 @@ export const getHeadToHeadAnalytics = async (
     first.edgeA !== null && last.edgeA !== null ? last.edgeA - first.edgeA : null;
 
   const totalQuotes = pointsA.length + pointsB.length;
-  const totalMatches = new Set(rows.map((row) => row.match_id)).size;
+  const totalMatches = new Set(directRows.map((row) => row.match_id)).size;
   const volatility = standardDeviation(
     timeline.map((point) => point.edgeA).filter((edge): edge is number => edge !== null)
   );
