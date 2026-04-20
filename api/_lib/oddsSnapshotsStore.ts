@@ -257,6 +257,10 @@ const round4 = (value: number | null): number | null =>
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
+const ADAPTIVE_BUCKET_CANDIDATES = [15, 30, 60, 180, 360, 720, 1440] as const;
+const MIN_EFFECTIVE_BUCKETS = 4;
+const MIN_H2H_OVERLAP_BUCKETS = 3;
+
 const toBucketMs = (isoDateTime: string, bucketMinutes: number): number => {
   const timestamp = new Date(isoDateTime).getTime();
   const bucketMs = Math.max(1, bucketMinutes) * 60 * 1000;
@@ -740,6 +744,43 @@ const buildBucketTimelineStats = (points: TeamMarketPoint[], bucketMinutes: numb
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 };
 
+const getAdaptiveBucketCandidates = (preferred: number): number[] => {
+  const normalizedPreferred = Math.max(1, Math.round(preferred));
+  const candidates = new Set<number>([normalizedPreferred, ...ADAPTIVE_BUCKET_CANDIDATES]);
+  return Array.from(candidates).sort((a, b) => a - b);
+};
+
+const pickAdaptiveTimeline = (
+  rawPoints: TeamMarketPoint[],
+  preferredBucketMinutes: number,
+  minDelta: number,
+  minEffectiveBuckets: number = MIN_EFFECTIVE_BUCKETS
+): { bucketMinutes: number; points: TeamMarketPoint[]; timeline: SnapshotStats[] } => {
+  const candidates = getAdaptiveBucketCandidates(preferredBucketMinutes);
+
+  let best: { bucketMinutes: number; points: TeamMarketPoint[]; timeline: SnapshotStats[] } = {
+    bucketMinutes: preferredBucketMinutes,
+    points: [],
+    timeline: [],
+  };
+
+  candidates.forEach((bucketMinutes) => {
+    const points = bucketAndFilterTeamPoints(rawPoints, bucketMinutes, minDelta);
+    const timeline = buildBucketTimelineStats(points, bucketMinutes);
+    const candidate = { bucketMinutes, points, timeline };
+
+    if (timeline.length > best.timeline.length) {
+      best = candidate;
+    }
+
+    if (timeline.length >= minEffectiveBuckets && best.timeline.length < minEffectiveBuckets) {
+      best = candidate;
+    }
+  });
+
+  return best;
+};
+
 const toTeamMarketPoint = (row: TeamMarketPointRow): TeamMarketPoint => ({
   snapshotId: Number(row.snapshot_id),
   createdAt: row.created_at,
@@ -751,11 +792,19 @@ const toTeamMarketPoint = (row: TeamMarketPointRow): TeamMarketPoint => ({
   decimalOdds: Number(row.decimal_odds),
 });
 
-const buildConfidenceScore = (sampleQuotes: number, snapshotCount: number, volatility: number | null): number => {
-  const sampleComponent = clamp(sampleQuotes / 250, 0, 1) * 0.6;
-  const snapshotComponent = clamp(snapshotCount / 20, 0, 1) * 0.3;
-  const volatilityPenalty = volatility === null ? 0.05 : clamp(volatility / 0.25, 0, 1) * 0.2;
-  const confidence = clamp(sampleComponent + snapshotComponent + 0.1 - volatilityPenalty, 0, 1);
+const buildConfidenceScore = (input: {
+  sampleQuotes: number;
+  snapshotCount: number;
+  volatility: number | null;
+  timeSpanHours: number | null;
+  overlapCoverage?: number;
+}): number => {
+  const sampleComponent = clamp(input.sampleQuotes / 250, 0, 1) * 0.45;
+  const snapshotComponent = clamp(input.snapshotCount / 12, 0, 1) * 0.25;
+  const timeSpanComponent = clamp((input.timeSpanHours ?? 0) / 72, 0, 1) * 0.2;
+  const overlapComponent = clamp(input.overlapCoverage ?? 1, 0, 1) * 0.1;
+  const volatilityPenalty = input.volatility === null ? 0.05 : clamp(input.volatility / 0.25, 0, 1) * 0.15;
+  const confidence = clamp(sampleComponent + snapshotComponent + timeSpanComponent + overlapComponent - volatilityPenalty, 0, 1);
   return Math.round(confidence * 100) / 100;
 };
 
@@ -1053,8 +1102,10 @@ export const getTeamFormAnalytics = async (
   }
 
   const rawPoints = rows.map(toTeamMarketPoint);
-  const points = bucketAndFilterTeamPoints(rawPoints, bucketMinutes, minDelta);
-  if (!points.length) {
+  const adaptiveTeam = pickAdaptiveTimeline(rawPoints, bucketMinutes, minDelta);
+  const points = adaptiveTeam.points;
+  const timelineStats = adaptiveTeam.timeline;
+  if (!points.length || !timelineStats.length) {
     return null;
   }
 
@@ -1138,7 +1189,6 @@ export const getTeamFormAnalytics = async (
     )
     .sort((a, b) => Math.abs(b.impliedProbDelta) - Math.abs(a.impliedProbDelta));
 
-  const timelineStats = buildBucketTimelineStats(points, bucketMinutes);
   const first = timelineStats[0];
   const last = timelineStats[timelineStats.length - 1];
 
@@ -1169,7 +1219,7 @@ export const getTeamFormAnalytics = async (
 
   const opponents = Array.from(opponentMap.entries())
     .map(([opponent, opponentPoints]) => {
-      const stats = buildBucketTimelineStats(opponentPoints, bucketMinutes);
+      const stats = buildBucketTimelineStats(opponentPoints, adaptiveTeam.bucketMinutes);
       const firstPoint = stats[0];
       const lastPoint = stats[stats.length - 1];
       const trendDelta =
@@ -1194,8 +1244,15 @@ export const getTeamFormAnalytics = async (
     });
 
   const totalMatches = new Set(points.map((point) => point.matchId)).size;
-  const confidenceScore = buildConfidenceScore(points.length, timelineStats.length, volatility);
   const timeSpanHours = computeTimeSpanHours(timelineStats.map((point) => point.createdAt));
+  const confidenceScore = buildConfidenceScore({
+    sampleQuotes: points.length,
+    snapshotCount: timelineStats.length,
+    volatility,
+    timeSpanHours,
+    overlapCoverage:
+      contextSnapshots.length > 0 ? timelineStats.length / contextSnapshots.length : 0,
+  });
 
   const movementThreshold = 0.0005;
   const movedUpMatches = matchMovements.filter((movement) => movement.impliedProbDelta > movementThreshold).length;
@@ -1211,7 +1268,7 @@ export const getTeamFormAnalytics = async (
   return {
     team: normalizedTeam,
     lookbackSnapshots: contextSnapshots.length,
-    bucketMinutes,
+    bucketMinutes: adaptiveTeam.bucketMinutes,
     minDelta,
     effectiveSampleBuckets: timelineStats.length,
     timeSpanHours: round4(timeSpanHours),
@@ -1307,12 +1364,85 @@ export const getHeadToHeadAnalytics = async (
     .filter((row) => row.outcome_name === normalizedTeamB)
     .map((row) => toTeamMarketPoint(row));
 
-  const pointsA = bucketAndFilterTeamPoints(rawPointsA, bucketMinutes, minDelta);
-  const pointsB = bucketAndFilterTeamPoints(rawPointsB, bucketMinutes, minDelta);
+  const candidates = getAdaptiveBucketCandidates(bucketMinutes);
 
-  if (!pointsA.length || !pointsB.length) {
+  let selectedBucketMinutes = bucketMinutes;
+  let selectedPointsA: TeamMarketPoint[] = [];
+  let selectedPointsB: TeamMarketPoint[] = [];
+  let selectedTimelineA: SnapshotStats[] = [];
+  let selectedTimelineB: SnapshotStats[] = [];
+  let selectedTimeline: HeadToHeadTimelinePoint[] = [];
+  let bestOverlapCount = 0;
+
+  candidates.forEach((candidateBucket) => {
+    const pointsA = bucketAndFilterTeamPoints(rawPointsA, candidateBucket, minDelta);
+    const pointsB = bucketAndFilterTeamPoints(rawPointsB, candidateBucket, minDelta);
+    if (!pointsA.length || !pointsB.length) {
+      return;
+    }
+
+    const timelineA = buildBucketTimelineStats(pointsA, candidateBucket);
+    const timelineB = buildBucketTimelineStats(pointsB, candidateBucket);
+    if (!timelineA.length || !timelineB.length) {
+      return;
+    }
+
+    const byBucketA = new Map(timelineA.map((point) => [point.createdAt, point]));
+    const byBucketB = new Map(timelineB.map((point) => [point.createdAt, point]));
+    const overlapKeys = Array.from(byBucketA.keys())
+      .filter((key) => byBucketB.has(key))
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    const overlapTimeline: HeadToHeadTimelinePoint[] = overlapKeys
+      .map((bucketCreatedAt) => {
+        const pointA = byBucketA.get(bucketCreatedAt);
+        const pointB = byBucketB.get(bucketCreatedAt);
+        if (!pointA || !pointB || pointA.avgImpliedProb === null || pointB.avgImpliedProb === null) {
+          return null;
+        }
+
+        return {
+          snapshotId: Math.max(pointA.snapshotId, pointB.snapshotId),
+          createdAt: bucketCreatedAt,
+          avgImpliedProbA: round4(pointA.avgImpliedProb),
+          avgImpliedProbB: round4(pointB.avgImpliedProb),
+          edgeA: round4(pointA.avgImpliedProb - pointB.avgImpliedProb),
+          sampleQuotes: pointA.sampleQuotes + pointB.sampleQuotes,
+          matchCount: Math.max(pointA.matchCount, pointB.matchCount),
+        };
+      })
+      .filter((point): point is HeadToHeadTimelinePoint => Boolean(point));
+
+    if (overlapTimeline.length > bestOverlapCount) {
+      bestOverlapCount = overlapTimeline.length;
+      selectedBucketMinutes = candidateBucket;
+      selectedPointsA = pointsA;
+      selectedPointsB = pointsB;
+      selectedTimelineA = timelineA;
+      selectedTimelineB = timelineB;
+      selectedTimeline = overlapTimeline;
+    }
+
+    if (overlapTimeline.length >= MIN_H2H_OVERLAP_BUCKETS && bestOverlapCount < MIN_H2H_OVERLAP_BUCKETS) {
+      bestOverlapCount = overlapTimeline.length;
+      selectedBucketMinutes = candidateBucket;
+      selectedPointsA = pointsA;
+      selectedPointsB = pointsB;
+      selectedTimelineA = timelineA;
+      selectedTimelineB = timelineB;
+      selectedTimeline = overlapTimeline;
+    }
+  });
+
+  if (!selectedTimeline.length || !selectedPointsA.length || !selectedPointsB.length) {
     return null;
   }
+
+  const pointsA = selectedPointsA;
+  const pointsB = selectedPointsB;
+  const timelineA = selectedTimelineA;
+  const timelineB = selectedTimelineB;
+  const timeline = selectedTimeline;
 
   const directRows = rows.filter(
     (row) =>
@@ -1320,63 +1450,39 @@ export const getHeadToHeadAnalytics = async (
       (row.home_team === normalizedTeamB && row.away_team === normalizedTeamA)
   );
 
-  const timelineA = buildBucketTimelineStats(pointsA, bucketMinutes);
-  const timelineB = buildBucketTimelineStats(pointsB, bucketMinutes);
-  const byBucketA = new Map(timelineA.map((point) => [point.createdAt, point]));
-  const byBucketB = new Map(timelineB.map((point) => [point.createdAt, point]));
-  const bucketKeys = Array.from(new Set([...byBucketA.keys(), ...byBucketB.keys()])).sort(
-    (a, b) => new Date(a).getTime() - new Date(b).getTime()
-  );
-
-  const timeline: HeadToHeadTimelinePoint[] = bucketKeys
-    .map((bucketCreatedAt) => {
-      const pointA = byBucketA.get(bucketCreatedAt);
-      const pointB = byBucketB.get(bucketCreatedAt);
-
-      const avgImpliedProbA = pointA?.avgImpliedProb ?? null;
-      const avgImpliedProbB = pointB?.avgImpliedProb ?? null;
-      const edgeA =
-        avgImpliedProbA !== null && avgImpliedProbB !== null ? avgImpliedProbA - avgImpliedProbB : null;
-
-      return {
-        snapshotId: pointA?.snapshotId || pointB?.snapshotId || 0,
-        createdAt: bucketCreatedAt,
-        avgImpliedProbA: round4(avgImpliedProbA),
-        avgImpliedProbB: round4(avgImpliedProbB),
-        edgeA: round4(edgeA),
-        sampleQuotes: (pointA?.sampleQuotes || 0) + (pointB?.sampleQuotes || 0),
-        matchCount: Math.max(pointA?.matchCount || 0, pointB?.matchCount || 0),
-      };
-    })
-    .filter((point) => point.sampleQuotes > 0);
-
   if (!timeline.length) {
     return null;
   }
 
-  const edgeTimeline = timeline.filter(
-    (point): point is HeadToHeadTimelinePoint & { edgeA: number } => point.edgeA !== null
-  );
-  const firstEdgePoint = edgeTimeline[0] ?? null;
-  const lastEdgePoint = edgeTimeline[edgeTimeline.length - 1] ?? null;
+  const firstEdgePoint = timeline[0] ?? null;
+  const lastEdgePoint = timeline[timeline.length - 1] ?? null;
   const avgImpliedProbA = average(pointsA.map((point) => point.impliedProbNoVig));
   const avgImpliedProbB = average(pointsB.map((point) => point.impliedProbNoVig));
-  const edgeDeltaA =
-    firstEdgePoint && lastEdgePoint ? lastEdgePoint.edgeA - firstEdgePoint.edgeA : null;
+  const edgeDeltaA = firstEdgePoint && lastEdgePoint ? lastEdgePoint.edgeA - firstEdgePoint.edgeA : null;
 
   const totalQuotes = pointsA.length + pointsB.length;
   const totalMatches = new Set(directRows.map((row) => row.match_id)).size;
   const volatility = standardDeviation(
     timeline.map((point) => point.edgeA).filter((edge): edge is number => edge !== null)
   );
-  const confidenceScore = buildConfidenceScore(totalQuotes, timeline.length, volatility);
   const timeSpanHours = computeTimeSpanHours(timeline.map((point) => point.createdAt));
+  const overlapCoverage =
+    Math.max(timelineA.length, timelineB.length) > 0
+      ? timeline.length / Math.max(timelineA.length, timelineB.length)
+      : 0;
+  const confidenceScore = buildConfidenceScore({
+    sampleQuotes: totalQuotes,
+    snapshotCount: timeline.length,
+    volatility,
+    timeSpanHours,
+    overlapCoverage,
+  });
 
   return {
     teamA: normalizedTeamA,
     teamB: normalizedTeamB,
     lookbackSnapshots: contextSnapshots.length,
-    bucketMinutes,
+    bucketMinutes: selectedBucketMinutes,
     minDelta,
     effectiveSampleBuckets: timeline.length,
     timeSpanHours: round4(timeSpanHours),
