@@ -1354,12 +1354,15 @@ export const getHeadToHeadAnalytics = async (
     return null;
   }
 
-  const first = timeline[0];
-  const last = timeline[timeline.length - 1];
+  const edgeTimeline = timeline.filter(
+    (point): point is HeadToHeadTimelinePoint & { edgeA: number } => point.edgeA !== null
+  );
+  const firstEdgePoint = edgeTimeline[0] ?? null;
+  const lastEdgePoint = edgeTimeline[edgeTimeline.length - 1] ?? null;
   const avgImpliedProbA = average(pointsA.map((point) => point.impliedProbNoVig));
   const avgImpliedProbB = average(pointsB.map((point) => point.impliedProbNoVig));
   const edgeDeltaA =
-    first.edgeA !== null && last.edgeA !== null ? last.edgeA - first.edgeA : null;
+    firstEdgePoint && lastEdgePoint ? lastEdgePoint.edgeA - firstEdgePoint.edgeA : null;
 
   const totalQuotes = pointsA.length + pointsB.length;
   const totalMatches = new Set(directRows.map((row) => row.match_id)).size;
@@ -1379,7 +1382,7 @@ export const getHeadToHeadAnalytics = async (
     timeSpanHours: round4(timeSpanHours),
     sampleQuotes: totalQuotes,
     totalMatches,
-    currentEdgeA: round4(last.edgeA),
+    currentEdgeA: round4(lastEdgePoint?.edgeA ?? null),
     edgeDeltaA: round4(edgeDeltaA),
     avgImpliedProbA: round4(avgImpliedProbA),
     avgImpliedProbB: round4(avgImpliedProbB),
