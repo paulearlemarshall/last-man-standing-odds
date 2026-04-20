@@ -159,6 +159,26 @@ export interface TeamOpponentEdge {
     trendDelta: number | null;
 }
 
+export interface TeamMatchMovement {
+    matchId: string;
+    opponent: string;
+    commenceTime: string;
+    snapshotsObserved: number;
+    openingImpliedProb: number | null;
+    currentImpliedProb: number | null;
+    impliedProbDelta: number | null;
+    movementPerDay: number | null;
+}
+
+export interface TeamMovementSummary {
+    trackedMatches: number;
+    movedUpMatches: number;
+    movedDownMatches: number;
+    flatMatches: number;
+    avgImpliedProbDelta: number | null;
+    avgMovementPerDay: number | null;
+}
+
 export interface TeamFormAnalytics {
     team: string;
     lookbackSnapshots: number;
@@ -170,8 +190,12 @@ export interface TeamFormAnalytics {
     momentumPerSnapshot: number | null;
     volatility: number | null;
     confidenceScore: number;
+    openingVsCurrentAvgDelta: number | null;
+    movementVelocityPerDay: number | null;
+    movementSummary: TeamMovementSummary;
     timeline: TeamFormTimelinePoint[];
     opponents: TeamOpponentEdge[];
+    matchMovements: TeamMatchMovement[];
 }
 
 export interface HeadToHeadTimelinePoint {

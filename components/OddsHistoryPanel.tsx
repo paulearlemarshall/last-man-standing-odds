@@ -8,6 +8,7 @@ import type {
   OddsSnapshotInsightPoint,
   OddsSnapshotSummary,
   TeamFormAnalytics,
+  TeamMatchMovement,
   TeamFormTimelinePoint,
 } from '../types';
 import CollapsibleSection from './CollapsibleSection';
@@ -497,7 +498,7 @@ const OddsHistoryPanel: React.FC = () => {
 
                 {teamForm && (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
                       <div className="bg-black/30 border border-gray-700 rounded-md p-3">
                         <MetricLabel
                           label="Current implied prob"
@@ -526,6 +527,35 @@ const OddsHistoryPanel: React.FC = () => {
                         />
                         <p className="text-lg text-white">{(teamForm.confidenceScore * 100).toFixed(0)}%</p>
                       </div>
+                      <div className="bg-black/30 border border-gray-700 rounded-md p-3">
+                        <MetricLabel
+                          label="Opening vs current delta"
+                          help="Per-match average change from the first captured implied probability to the latest captured implied probability across the lookback window."
+                        />
+                        <p className="text-lg text-white">{renderDelta(teamForm.openingVsCurrentAvgDelta)}</p>
+                      </div>
+                      <div className="bg-black/30 border border-gray-700 rounded-md p-3">
+                        <MetricLabel
+                          label="Movement velocity/day"
+                          help="Average daily rate of implied probability movement across tracked matches. Positive means the team trend is strengthening over time."
+                        />
+                        <p className="text-lg text-white">{renderDelta(teamForm.movementVelocityPerDay)}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
+                        Tracked matches: <span className="font-semibold text-white">{teamForm.movementSummary.trackedMatches}</span>
+                      </div>
+                      <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
+                        Moved up: <span className="font-semibold text-emerald-300">{teamForm.movementSummary.movedUpMatches}</span>
+                      </div>
+                      <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
+                        Moved down: <span className="font-semibold text-red-300">{teamForm.movementSummary.movedDownMatches}</span>
+                      </div>
+                      <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
+                        Flat: <span className="font-semibold text-white">{teamForm.movementSummary.flatMatches}</span>
+                      </div>
                     </div>
 
                     <div className="overflow-auto">
@@ -551,6 +581,36 @@ const OddsHistoryPanel: React.FC = () => {
                               <td className="py-2 pr-2">{formatMetric(point.avgImpliedProb)}</td>
                               <td className="py-2 pr-2">{formatMetric(point.avgOdds)}</td>
                               <td className="py-2 pr-2">{formatMetric(point.avgBookmakersPerMatch)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="overflow-auto">
+                      <h5 className="text-sm text-cyan-200 font-semibold mb-2">Opening vs current movement by fixture</h5>
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="text-left text-gray-300 border-b border-gray-700">
+                            <th className="py-2 pr-2">Opponent</th>
+                            <th className="py-2 pr-2">Kickoff (UK)</th>
+                            <th className="py-2 pr-2">Snapshots</th>
+                            <th className="py-2 pr-2">Opening Implied</th>
+                            <th className="py-2 pr-2">Current Implied</th>
+                            <th className="py-2 pr-2">Delta</th>
+                            <th className="py-2 pr-2">Velocity/Day</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {teamForm.matchMovements.map((movement: TeamMatchMovement) => (
+                            <tr key={movement.matchId} className="border-b border-gray-800 text-slate-200">
+                              <td className="py-2 pr-2">{movement.opponent}</td>
+                              <td className="py-2 pr-2">{formatTimelineDate(movement.commenceTime)}</td>
+                              <td className="py-2 pr-2">{movement.snapshotsObserved}</td>
+                              <td className="py-2 pr-2">{formatMetric(movement.openingImpliedProb)}</td>
+                              <td className="py-2 pr-2">{formatMetric(movement.currentImpliedProb)}</td>
+                              <td className="py-2 pr-2">{renderDelta(movement.impliedProbDelta)}</td>
+                              <td className="py-2 pr-2">{renderDelta(movement.movementPerDay)}</td>
                             </tr>
                           ))}
                         </tbody>

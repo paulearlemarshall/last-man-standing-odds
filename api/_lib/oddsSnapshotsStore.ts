@@ -20,6 +20,7 @@ type TeamMarketPointRow = {
   snapshot_id: number;
   created_at: string;
   match_id: string;
+  commence_time: string;
   home_team: string;
   away_team: string;
   implied_prob_novig: number;
@@ -30,6 +31,7 @@ type TeamMarketPoint = {
   snapshotId: number;
   createdAt: string;
   matchId: string;
+  commenceTime: string;
   homeTeam: string;
   awayTeam: string;
   impliedProbNoVig: number;
@@ -144,6 +146,26 @@ export interface TeamOpponentEdge {
   trendDelta: number | null;
 }
 
+export interface TeamMatchMovement {
+  matchId: string;
+  opponent: string;
+  commenceTime: string;
+  snapshotsObserved: number;
+  openingImpliedProb: number | null;
+  currentImpliedProb: number | null;
+  impliedProbDelta: number | null;
+  movementPerDay: number | null;
+}
+
+export interface TeamMovementSummary {
+  trackedMatches: number;
+  movedUpMatches: number;
+  movedDownMatches: number;
+  flatMatches: number;
+  avgImpliedProbDelta: number | null;
+  avgMovementPerDay: number | null;
+}
+
 export interface TeamFormAnalytics {
   team: string;
   lookbackSnapshots: number;
@@ -155,8 +177,12 @@ export interface TeamFormAnalytics {
   momentumPerSnapshot: number | null;
   volatility: number | null;
   confidenceScore: number;
+  openingVsCurrentAvgDelta: number | null;
+  movementVelocityPerDay: number | null;
+  movementSummary: TeamMovementSummary;
   timeline: TeamFormTimelinePoint[];
   opponents: TeamOpponentEdge[];
+  matchMovements: TeamMatchMovement[];
 }
 
 export interface HeadToHeadTimelinePoint {
@@ -553,6 +579,7 @@ const toTeamMarketPoint = (row: TeamMarketPointRow): TeamMarketPoint => ({
   snapshotId: Number(row.snapshot_id),
   createdAt: row.created_at,
   matchId: row.match_id,
+  commenceTime: row.commence_time,
   homeTeam: row.home_team,
   awayTeam: row.away_team,
   impliedProbNoVig: Number(row.implied_prob_novig),
@@ -846,7 +873,7 @@ export const getTeamFormAnalytics = async (
 
   const sql = getSqlClient();
   const rows = (await sql`
-    SELECT snapshot_id, captured_at AS created_at, match_id, home_team, away_team, implied_prob_novig, decimal_odds
+    SELECT snapshot_id, captured_at AS created_at, match_id, commence_time, home_team, away_team, implied_prob_novig, decimal_odds
     FROM odds_market_points
     WHERE snapshot_id = ANY(${snapshotIds}::bigint[])
       AND outcome_name = ${normalizedTeam}
@@ -859,6 +886,87 @@ export const getTeamFormAnalytics = async (
   }
 
   const points = rows.map(toTeamMarketPoint);
+
+  const matchSnapshotMap = new Map<
+    string,
+    {
+      matchId: string;
+      opponent: string;
+      commenceTime: string;
+      snapshots: Map<number, { createdAt: string; impliedProbSum: number; impliedProbCount: number }>;
+    }
+  >();
+
+  points.forEach((point) => {
+    const opponent = point.homeTeam === normalizedTeam ? point.awayTeam : point.homeTeam;
+    const matchBucket = matchSnapshotMap.get(point.matchId) || {
+      matchId: point.matchId,
+      opponent,
+      commenceTime: point.commenceTime,
+      snapshots: new Map<number, { createdAt: string; impliedProbSum: number; impliedProbCount: number }>(),
+    };
+
+    const snapshotBucket = matchBucket.snapshots.get(point.snapshotId) || {
+      createdAt: point.createdAt,
+      impliedProbSum: 0,
+      impliedProbCount: 0,
+    };
+
+    snapshotBucket.impliedProbSum += point.impliedProbNoVig;
+    snapshotBucket.impliedProbCount += 1;
+    matchBucket.snapshots.set(point.snapshotId, snapshotBucket);
+    matchSnapshotMap.set(point.matchId, matchBucket);
+  });
+
+  const matchMovements = Array.from(matchSnapshotMap.values())
+    .map((match) => {
+      const snapshotValues = Array.from(match.snapshots.values())
+        .map((snapshot) => ({
+          createdAt: snapshot.createdAt,
+          avgImpliedProb:
+            snapshot.impliedProbCount > 0 ? snapshot.impliedProbSum / snapshot.impliedProbCount : null,
+        }))
+        .filter((snapshot): snapshot is { createdAt: string; avgImpliedProb: number } => snapshot.avgImpliedProb !== null)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      if (!snapshotValues.length) {
+        return null;
+      }
+
+      const opening = snapshotValues[0];
+      const current = snapshotValues[snapshotValues.length - 1];
+      const impliedProbDelta = current.avgImpliedProb - opening.avgImpliedProb;
+      const hoursSpan =
+        (new Date(current.createdAt).getTime() - new Date(opening.createdAt).getTime()) / (1000 * 60 * 60);
+      const movementPerDay = hoursSpan > 0 ? impliedProbDelta / (hoursSpan / 24) : null;
+
+      return {
+        matchId: match.matchId,
+        opponent: match.opponent,
+        commenceTime: match.commenceTime,
+        snapshotsObserved: snapshotValues.length,
+        openingImpliedProb: opening.avgImpliedProb,
+        currentImpliedProb: current.avgImpliedProb,
+        impliedProbDelta,
+        movementPerDay,
+      };
+    })
+    .filter(
+      (
+        movement
+      ): movement is {
+        matchId: string;
+        opponent: string;
+        commenceTime: string;
+        snapshotsObserved: number;
+        openingImpliedProb: number;
+        currentImpliedProb: number;
+        impliedProbDelta: number;
+        movementPerDay: number | null;
+      } => Boolean(movement)
+    )
+    .sort((a, b) => Math.abs(b.impliedProbDelta) - Math.abs(a.impliedProbDelta));
+
   const timelineStats = buildSnapshotStats(points);
   const first = timelineStats[0];
   const last = timelineStats[timelineStats.length - 1];
@@ -917,6 +1025,17 @@ export const getTeamFormAnalytics = async (
   const totalMatches = new Set(points.map((point) => point.matchId)).size;
   const confidenceScore = buildConfidenceScore(points.length, timelineStats.length, volatility);
 
+  const movementThreshold = 0.0005;
+  const movedUpMatches = matchMovements.filter((movement) => movement.impliedProbDelta > movementThreshold).length;
+  const movedDownMatches = matchMovements.filter((movement) => movement.impliedProbDelta < -movementThreshold).length;
+  const flatMatches = matchMovements.length - movedUpMatches - movedDownMatches;
+  const openingVsCurrentAvgDelta = average(matchMovements.map((movement) => movement.impliedProbDelta));
+  const movementVelocityPerDay = average(
+    matchMovements
+      .map((movement) => movement.movementPerDay)
+      .filter((value): value is number => value !== null)
+  );
+
   return {
     team: normalizedTeam,
     lookbackSnapshots: contextSnapshots.length,
@@ -928,6 +1047,16 @@ export const getTeamFormAnalytics = async (
     momentumPerSnapshot: round4(momentumPerSnapshot),
     volatility: round4(volatility),
     confidenceScore,
+    openingVsCurrentAvgDelta: round4(openingVsCurrentAvgDelta),
+    movementVelocityPerDay: round4(movementVelocityPerDay),
+    movementSummary: {
+      trackedMatches: matchMovements.length,
+      movedUpMatches,
+      movedDownMatches,
+      flatMatches,
+      avgImpliedProbDelta: round4(openingVsCurrentAvgDelta),
+      avgMovementPerDay: round4(movementVelocityPerDay),
+    },
     timeline: timelineStats.map((point) => ({
       snapshotId: point.snapshotId,
       createdAt: point.createdAt,
@@ -943,6 +1072,16 @@ export const getTeamFormAnalytics = async (
       matchCount: opponent.matchCount,
       avgImpliedProb: round4(opponent.avgImpliedProb),
       trendDelta: round4(opponent.trendDelta),
+    })),
+    matchMovements: matchMovements.slice(0, 50).map((movement) => ({
+      matchId: movement.matchId,
+      opponent: movement.opponent,
+      commenceTime: movement.commenceTime,
+      snapshotsObserved: movement.snapshotsObserved,
+      openingImpliedProb: round4(movement.openingImpliedProb),
+      currentImpliedProb: round4(movement.currentImpliedProb),
+      impliedProbDelta: round4(movement.impliedProbDelta),
+      movementPerDay: round4(movement.movementPerDay),
     })),
   };
 };
