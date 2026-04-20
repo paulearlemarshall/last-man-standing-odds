@@ -1,7 +1,7 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 import React, { useEffect, useMemo, useState } from 'react';
-import type { OddsSnapshotDetail, OddsSnapshotSummary } from '../types';
+import type { OddsSnapshotDetail, OddsSnapshotInsightPoint, OddsSnapshotSummary } from '../types';
 import CollapsibleSection from './CollapsibleSection';
 
 const formatSnapshotLabel = (snapshot: OddsSnapshotSummary) => {
@@ -105,6 +105,25 @@ const OddsHistoryPanel: React.FC = () => {
     return JSON.stringify(selectedSnapshot.payload, null, 2);
   }, [selectedSnapshot]);
 
+  const formatMetric = (value: number | null): string => {
+    if (value === null) return 'n/a';
+    return value.toFixed(2);
+  };
+
+  const renderDelta = (value: number | null): string => {
+    if (value === null) return 'n/a';
+    if (value > 0) return `+${value.toFixed(2)}`;
+    return value.toFixed(2);
+  };
+
+  const formatTimelineDate = (createdAt: string): string =>
+    new Date(createdAt).toLocaleString('en-GB', {
+      hour12: false,
+      timeZone: 'Europe/London',
+    });
+
+  const insightsTimeline = selectedSnapshot?.insights?.timeline ?? [];
+
   return (
     <CollapsibleSection title="Stored Odds Snapshots" defaultOpen={false}>
       <div className="space-y-4">
@@ -167,6 +186,60 @@ const OddsHistoryPanel: React.FC = () => {
                 <pre className="text-xs text-green-200 whitespace-pre-wrap">{snapshotPayload}</pre>
               )}
             </div>
+
+            {selectedSnapshot.insights && (
+              <div className="bg-gray-900/70 border border-blue-700/60 rounded-md p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-blue-200">Odds analytics over time (roll-up)</h4>
+                  <p className="text-xs text-gray-400">
+                    Lookback snapshots: {selectedSnapshot.insights.lookbackCount} | Tracked fixtures:{' '}
+                    {selectedSnapshot.insights.trackedMatchCount}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="bg-black/30 border border-gray-700 rounded-md p-3">
+                    <p className="text-xs text-gray-400">Avg home-odds delta</p>
+                    <p className="text-lg text-white">{renderDelta(selectedSnapshot.insights.avgHomeOddsDelta)}</p>
+                  </div>
+                  <div className="bg-black/30 border border-gray-700 rounded-md p-3">
+                    <p className="text-xs text-gray-400">Avg away-odds delta</p>
+                    <p className="text-lg text-white">{renderDelta(selectedSnapshot.insights.avgAwayOddsDelta)}</p>
+                  </div>
+                  <div className="bg-black/30 border border-gray-700 rounded-md p-3">
+                    <p className="text-xs text-gray-400">Avg bookmakers/match delta</p>
+                    <p className="text-lg text-white">{renderDelta(selectedSnapshot.insights.avgBookmakersPerMatchDelta)}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="text-left text-gray-300 border-b border-gray-700">
+                        <th className="py-2 pr-2">Snapshot</th>
+                        <th className="py-2 pr-2">Captured (UK)</th>
+                        <th className="py-2 pr-2">Tracked Fixtures</th>
+                        <th className="py-2 pr-2">Avg Home Odds</th>
+                        <th className="py-2 pr-2">Avg Away Odds</th>
+                        <th className="py-2 pr-2">Avg Bookmakers/Match</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {insightsTimeline.map((point: OddsSnapshotInsightPoint) => (
+                        <tr key={point.snapshotId} className="border-b border-gray-800 text-slate-200">
+                          <td className="py-2 pr-2">{point.snapshotId}</td>
+                          <td className="py-2 pr-2">{formatTimelineDate(point.createdAt)}</td>
+                          <td className="py-2 pr-2">{point.trackedMatchCount}</td>
+                          <td className="py-2 pr-2">{formatMetric(point.avgHomeOdds)}</td>
+                          <td className="py-2 pr-2">{formatMetric(point.avgAwayOdds)}</td>
+                          <td className="py-2 pr-2">{formatMetric(point.avgBookmakersPerMatch)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
