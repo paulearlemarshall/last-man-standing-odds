@@ -140,3 +140,60 @@ export interface OddsSnapshotInsights {
     avgBookmakersPerMatchDelta: number | null;
     timeline: OddsSnapshotInsightPoint[];
 }
+
+export interface TeamFormTimelinePoint {
+    snapshotId: number;
+    createdAt: string;
+    sampleQuotes: number;
+    matchCount: number;
+    avgImpliedProb: number | null;
+    avgOdds: number | null;
+    avgBookmakersPerMatch: number | null;
+}
+
+export interface TeamOpponentEdge {
+    opponent: string;
+    sampleQuotes: number;
+    matchCount: number;
+    avgImpliedProb: number | null;
+    trendDelta: number | null;
+}
+
+export interface TeamFormAnalytics {
+    team: string;
+    lookbackSnapshots: number;
+    sampleQuotes: number;
+    totalMatches: number;
+    avgImpliedProb: number | null;
+    currentImpliedProb: number | null;
+    impliedProbDelta: number | null;
+    momentumPerSnapshot: number | null;
+    volatility: number | null;
+    confidenceScore: number;
+    timeline: TeamFormTimelinePoint[];
+    opponents: TeamOpponentEdge[];
+}
+
+export interface HeadToHeadTimelinePoint {
+    snapshotId: number;
+    createdAt: string;
+    avgImpliedProbA: number | null;
+    avgImpliedProbB: number | null;
+    edgeA: number | null;
+    sampleQuotes: number;
+    matchCount: number;
+}
+
+export interface HeadToHeadAnalytics {
+    teamA: string;
+    teamB: string;
+    lookbackSnapshots: number;
+    sampleQuotes: number;
+    totalMatches: number;
+    currentEdgeA: number | null;
+    edgeDeltaA: number | null;
+    avgImpliedProbA: number | null;
+    avgImpliedProbB: number | null;
+    confidenceScore: number;
+    timeline: HeadToHeadTimelinePoint[];
+}
