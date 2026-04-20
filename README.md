@@ -53,3 +53,7 @@ Vercel will serve:
 
 - Do **not** expose API keys in client files.
 - Keep all third-party API secrets in Vercel project environment variables.
+
+## Maintenance
+
+- 2026-04-20: Added a lightweight PR workflow smoke-test update to verify automated commit + PR tooling.

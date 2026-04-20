@@ -117,4 +117,26 @@ export interface OddsSnapshotSummary {
 export interface OddsSnapshotDetail extends OddsSnapshotSummary {
     sourceUrl: string;
     payload: unknown;
+    insights?: OddsSnapshotInsights | null;
+}
+
+export interface OddsSnapshotInsightPoint {
+    snapshotId: number;
+    createdAt: string;
+    avgHomeOdds: number | null;
+    avgAwayOdds: number | null;
+    avgBookmakersPerMatch: number | null;
+    trackedMatchCount: number;
+}
+
+export interface OddsSnapshotInsights {
+    lookbackCount: number;
+    currentSnapshotId: number;
+    currentCreatedAt: string;
+    currentMatchCount: number;
+    trackedMatchCount: number;
+    avgHomeOddsDelta: number | null;
+    avgAwayOddsDelta: number | null;
+    avgBookmakersPerMatchDelta: number | null;
+    timeline: OddsSnapshotInsightPoint[];
 }

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { getOddsSnapshotById, listOddsSnapshots } from './_lib/oddsSnapshotsStore.js';
+import { getOddsSnapshotById, getOddsSnapshotInsights, listOddsSnapshots } from './_lib/oddsSnapshotsStore.js';
 
 function normalizeQueryValue(value: string | string[] | undefined): string {
   if (!value) return '';
@@ -34,7 +34,8 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
         return sendJson(res, 404, { error: 'Snapshot not found' });
       }
 
-      return sendJson(res, 200, snapshot);
+      const insights = await getOddsSnapshotInsights(snapshotId);
+      return sendJson(res, 200, { ...snapshot, insights });
     }
 
     const snapshots = await listOddsSnapshots(Number.isFinite(limit) ? limit : 30);
