@@ -52,6 +52,14 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
   });
 
   const upstreamUrl = `https://api.the-odds-api.com/v4/sports/${sportKeyRaw}/odds/?${upstreamParams.toString()}`;
+  const persistedSourceUrl = (() => {
+    const sanitizedParams = new URLSearchParams({
+      regions: regions.join(','),
+      markets,
+      apiKey: 'REDACTED',
+    });
+    return `https://api.the-odds-api.com/v4/sports/${sportKeyRaw}/odds/?${sanitizedParams.toString()}`;
+  })();
 
   try {
     const response = await fetch(upstreamUrl, {
@@ -76,7 +84,7 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
         sportKey: sportKeyRaw,
         regions: regions.join(','),
         markets,
-        sourceUrl: upstreamUrl,
+        sourceUrl: persistedSourceUrl,
         responseText,
       });
     } catch (persistError) {

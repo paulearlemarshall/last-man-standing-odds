@@ -6,7 +6,8 @@ const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 export async function fetchOddsFromApi(
     sportKey: string = 'soccer_epl', 
     forceRefresh: boolean = false,
-    regions: Region[] = ['uk']
+    regions: Region[] = ['uk'],
+    signal?: AbortSignal
 ): Promise<{ data: ApiMatch[], fetchedRegionCount: number }> {
     
     // 1. Identify what we have and what we need
@@ -59,47 +60,49 @@ export async function fetchOddsFromApi(
 
     // 3. Fetch missing regions
     if (regionsToFetch.length > 0) {
-        const sortedRegionsToFetch = regionsToFetch.sort().join(',');
-        const params = new URLSearchParams({
-            sportKey,
-            regions: sortedRegionsToFetch,
-            markets: 'h2h'
-        });
-
         const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
-        const apiPath = `/api/odds?${params.toString()}`;
-        const requestUrl = apiBaseUrl ? `${apiBaseUrl}${apiPath}` : apiPath;
-        console.log(`[API] Fetching missing regions via ${requestUrl}`);
-        const response = await fetch(requestUrl);
-        
-        if (!response.ok) {
-            const details = await response.text();
-            throw new Error(`API returned ${response.status}: ${response.statusText}${details ? ` - ${details}` : ''}`);
-        }
+        const sortedRegionsToFetch = [...regionsToFetch].sort();
 
-        const responseText = await response.text();
-        let freshData: ApiMatch[];
+        await Promise.all(
+            sortedRegionsToFetch.map(async (region) => {
+                const params = new URLSearchParams({
+                    sportKey,
+                    regions: region,
+                    markets: 'h2h'
+                });
 
-        try {
-            freshData = JSON.parse(responseText) as ApiMatch[];
-        } catch (_error) {
-            throw new Error(`API returned non-JSON content from ${requestUrl}: ${responseText.slice(0, 120)}`);
-        }
+                const apiPath = `/api/odds?${params.toString()}`;
+                const requestUrl = apiBaseUrl ? `${apiBaseUrl}${apiPath}` : apiPath;
+                console.log(`[API] Fetching missing region (${region}) via ${requestUrl}`);
+                const response = await fetch(requestUrl, { signal });
+                
+                if (!response.ok) {
+                    const details = await response.text();
+                    throw new Error(`API returned ${response.status}: ${response.statusText}${details ? ` - ${details}` : ''}`);
+                }
 
-        mergeDataIntoMaster(freshData);
+                const responseText = await response.text();
+                let freshData: ApiMatch[];
 
-        // Update Cache
-        const timestamp = Date.now();
-        regionsToFetch.forEach(region => {
-            const CACHE_KEY = `odds_cache_single_${sportKey}_${region}`;
-            try {
-                localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp, data: freshData }));
-            } catch (e) {}
-        });
+                try {
+                    freshData = JSON.parse(responseText) as ApiMatch[];
+                } catch (_error) {
+                    throw new Error(`API returned non-JSON content from ${requestUrl}: ${responseText.slice(0, 120)}`);
+                }
 
-        return { 
-            data: Array.from(cachedMatches.values()), 
-            fetchedRegionCount: regionsToFetch.length
+                mergeDataIntoMaster(freshData);
+
+                const CACHE_KEY = `odds_cache_single_${sportKey}_${region}`;
+                const timestamp = Date.now();
+                try {
+                    localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp, data: freshData }));
+                } catch (_error) {}
+            })
+        );
+
+        return {
+            data: Array.from(cachedMatches.values()),
+            fetchedRegionCount: sortedRegionsToFetch.length
         };
     }
 

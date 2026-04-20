@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ApiMatch, MatchWeekend, Region } from '../types';
 import { fetchOddsFromApi } from '../services/oddsApiService';
 import { processApiData } from '../services/oddsTransformService';
@@ -18,6 +18,7 @@ interface UseOddsDataResult {
 }
 
 export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOddsDataResult {
+  const activeRequestRef = useRef<AbortController | null>(null);
   const [apiData, setApiData] = useState<ApiMatch[] | null>(null);
   const [matchWeekends, setMatchWeekends] = useState<MatchWeekend[]>([]);
   const [allBookmakers, setAllBookmakers] = useState<string[]>(['average']);
@@ -30,13 +31,25 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
   const [quotaCost, setQuotaCost] = useState(0);
 
   const loadOdds = useCallback(
-    async (forceRefresh: boolean) => {
+    async (forceRefresh: boolean): Promise<void> => {
+      activeRequestRef.current?.abort();
+      const abortController = new AbortController();
+      activeRequestRef.current = abortController;
+
       try {
         setError(null);
 
         const startTime = performance.now();
-        const { data, fetchedRegionCount } = await fetchOddsFromApi(leagueKey, forceRefresh, selectedRegions);
+        const { data, fetchedRegionCount } = await fetchOddsFromApi(
+          leagueKey,
+          forceRefresh,
+          selectedRegions,
+          abortController.signal
+        );
         const endTime = performance.now();
+        if (abortController.signal.aborted) {
+          return;
+        }
 
         if (fetchedRegionCount > 0) {
           setApiLatency(endTime - startTime);
@@ -51,7 +64,14 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
         setAllTeams(teams);
         setLastRefreshTime(new Date());
       } catch (fetchError) {
+        if (abortController.signal.aborted) {
+          return;
+        }
         setError(fetchError instanceof Error ? fetchError.message : 'An unknown error occurred.');
+      } finally {
+        if (activeRequestRef.current === abortController) {
+          activeRequestRef.current = null;
+        }
       }
     },
     [leagueKey, selectedRegions]
@@ -60,6 +80,13 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
   useEffect(() => {
     setLoading(true);
     loadOdds(false).finally(() => setLoading(false));
+  }, [loadOdds]);
+
+  useEffect(() => {
+    return () => {
+      activeRequestRef.current?.abort();
+      activeRequestRef.current = null;
+    };
   }, [loadOdds]);
 
   const refresh = useCallback(async () => {
