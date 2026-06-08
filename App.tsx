@@ -16,6 +16,7 @@ import OddsHistoryPanel from './components/OddsHistoryPanel';
 import { SPORTS_DIRECTORY } from './constants/sportsDirectory';
 import { useOddsData } from './hooks/useOddsData';
 import { suggestPicks } from './services/pickSuggestionService';
+import { fetchSportsDirectory, type SportsDirectory } from './services/sportsDirectoryService';
 import { decodePlayersFromUrl, encodePlayersForUrl } from './utils/shareState';
 
 const DEFAULT_SPORT_CLASS = 'Soccer';
@@ -23,16 +24,38 @@ const DEFAULT_LEAGUE_KEY = 'soccer_epl';
 
 const ALL_REGIONS: Region[] = ['uk', 'us', 'eu', 'au'];
 
-const getInitialSportClass = (): string => {
-    const params = new URLSearchParams(window.location.search);
-    const sport = params.get('sport');
-    return sport && SPORTS_DIRECTORY[sport] ? sport : DEFAULT_SPORT_CLASS;
+const getSportClasses = (sportsDirectory: SportsDirectory): string[] => Object.keys(sportsDirectory);
+
+const findLeagueByKey = (sportsDirectory: SportsDirectory, leagueKey: string) => {
+    for (const [sportClass, leagues] of Object.entries(sportsDirectory)) {
+        const league = leagues.find((item) => item.key === leagueKey);
+        if (league) {
+            return { sportClass, league };
+        }
+    }
+
+    return null;
 };
 
-const getInitialLeague = (sportClass: string, useUrlLeague: boolean = true) => {
+const getInitialSportClass = (sportsDirectory: SportsDirectory): string => {
+    const params = new URLSearchParams(window.location.search);
+    const sport = params.get('sport');
+
+    if (sport && sportsDirectory[sport]) {
+        return sport;
+    }
+
+    if (sportsDirectory[DEFAULT_SPORT_CLASS]) {
+        return DEFAULT_SPORT_CLASS;
+    }
+
+    return getSportClasses(sportsDirectory)[0] || DEFAULT_SPORT_CLASS;
+};
+
+const getInitialLeague = (sportsDirectory: SportsDirectory, sportClass: string, useUrlLeague: boolean = true) => {
     const params = new URLSearchParams(window.location.search);
     const requestedLeagueKey = useUrlLeague ? params.get('league') : null;
-    const leaguesForSport = SPORTS_DIRECTORY[sportClass] || SPORTS_DIRECTORY[DEFAULT_SPORT_CLASS];
+    const leaguesForSport = sportsDirectory[sportClass] || sportsDirectory[DEFAULT_SPORT_CLASS] || getSportClasses(sportsDirectory).flatMap((key) => sportsDirectory[key]);
 
     if (requestedLeagueKey) {
         const requestedLeague = leaguesForSport.find((league) => league.key === requestedLeagueKey);
@@ -42,6 +65,29 @@ const getInitialLeague = (sportClass: string, useUrlLeague: boolean = true) => {
     }
 
     return leaguesForSport.find((league) => league.key === DEFAULT_LEAGUE_KEY) || leaguesForSport[0];
+};
+
+const getPreferredSelection = (sportsDirectory: SportsDirectory, useUrlLeague: boolean = true) => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedLeagueKey = useUrlLeague ? params.get('league') : null;
+
+    if (requestedLeagueKey) {
+        const requestedSelection = findLeagueByKey(sportsDirectory, requestedLeagueKey);
+        if (requestedSelection) {
+            return requestedSelection;
+        }
+    }
+
+    const eplSelection = findLeagueByKey(sportsDirectory, DEFAULT_LEAGUE_KEY);
+    if (eplSelection) {
+        return eplSelection;
+    }
+
+    const sportClass = getInitialSportClass(sportsDirectory);
+    return {
+        sportClass,
+        league: getInitialLeague(sportsDirectory, sportClass, false),
+    };
 };
 
 const getInitialRegions = (): Region[] => {
@@ -61,8 +107,11 @@ const getInitialRegions = (): Region[] => {
 };
 
 const App: React.FC = () => {
-    const [currentSportClass, setCurrentSportClass] = useState<string>(() => getInitialSportClass());
-    const [currentLeague, setCurrentLeague] = useState(() => getInitialLeague(getInitialSportClass()));
+    const initialSelection = getPreferredSelection(SPORTS_DIRECTORY);
+    const [sportsDirectory, setSportsDirectory] = useState<SportsDirectory>(SPORTS_DIRECTORY);
+    const [sportsDirectoryError, setSportsDirectoryError] = useState<string | null>(null);
+    const [currentSportClass, setCurrentSportClass] = useState<string>(initialSelection.sportClass);
+    const [currentLeague, setCurrentLeague] = useState(initialSelection.league);
     const [selectedRegions, setSelectedRegions] = useState<Region[]>(() => getInitialRegions());
     const [currentTime, setCurrentTime] = useState(() => new Date());
 
@@ -86,6 +135,33 @@ const App: React.FC = () => {
     const [decisionLogs, setDecisionLogs] = useState<DecisionLogEntry[]>([]);
     const [shareMessage, setShareMessage] = useState<string | null>(null);
     const [hasHydratedPlayers, setHasHydratedPlayers] = useState(false);
+
+    useEffect(() => {
+        const abortController = new AbortController();
+
+        fetchSportsDirectory(abortController.signal)
+            .then((directory) => {
+                if (abortController.signal.aborted) {
+                    return;
+                }
+
+                setSportsDirectory(directory);
+                setSportsDirectoryError(null);
+
+                const selection = getPreferredSelection(directory);
+                setCurrentSportClass(selection.sportClass);
+                setCurrentLeague(selection.league);
+            })
+            .catch((directoryError) => {
+                if (abortController.signal.aborted) {
+                    return;
+                }
+
+                setSportsDirectoryError(directoryError instanceof Error ? directoryError.message : 'Could not load active sports.');
+            });
+
+        return () => abortController.abort();
+    }, []);
 
     useEffect(() => {
         if (!shareMessage) return;
@@ -139,12 +215,13 @@ const App: React.FC = () => {
     const handleSportChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newSportClass = e.target.value;
         setCurrentSportClass(newSportClass);
-        setCurrentLeague(SPORTS_DIRECTORY[newSportClass][0]);
+        setCurrentLeague(sportsDirectory[newSportClass][0]);
     };
 
     const handleReset = () => {
-        setCurrentSportClass(DEFAULT_SPORT_CLASS);
-        setCurrentLeague(getInitialLeague(DEFAULT_SPORT_CLASS, false));
+        const selection = getPreferredSelection(sportsDirectory, false);
+        setCurrentSportClass(selection.sportClass);
+        setCurrentLeague(selection.league);
         setSelectedRegions(['uk']);
         setPlayers([{ id: 1, name: 'Player 1', previousPicks: [], suggestion: null }]);
         setDecisionLogs([]);
@@ -207,13 +284,13 @@ const App: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-center gap-4">
                         <div className="relative">
                             <select value={currentSportClass} onChange={handleSportChange} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-white border-none focus:ring-2 focus:ring-green-500 outline-none cursor-pointer appearance-none pr-8 font-bold">
-                                {Object.keys(SPORTS_DIRECTORY).map(sport => <option key={sport} value={sport}>{sport}</option>)}
+                                {Object.keys(sportsDirectory).map(sport => <option key={sport} value={sport}>{sport}</option>)}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div>
                         </div>
                         <div className="relative">
-                            <select value={currentLeague.key} onChange={(e) => { const league = SPORTS_DIRECTORY[currentSportClass].find(l => l.key === e.target.value); if (league) setCurrentLeague(league); }} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-white border-none focus:ring-2 focus:ring-green-500 outline-none cursor-pointer appearance-none pr-8">
-                                {SPORTS_DIRECTORY[currentSportClass].map(league => <option key={league.key} value={league.key}>{league.name}</option>)}
+                            <select value={currentLeague.key} onChange={(e) => { const league = sportsDirectory[currentSportClass].find(l => l.key === e.target.value); if (league) setCurrentLeague(league); }} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-md text-white border-none focus:ring-2 focus:ring-green-500 outline-none cursor-pointer appearance-none pr-8">
+                                {sportsDirectory[currentSportClass].map(league => <option key={league.key} value={league.key}>{league.name}</option>)}
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div>
                         </div>
@@ -235,6 +312,7 @@ const App: React.FC = () => {
                     <div className="flex flex-col items-center gap-1">
                         {lastRefreshTime && <p className="text-xs text-gray-500">Last refreshed: {lastRefreshTime.toLocaleTimeString()}</p>}
                         {shareMessage && <p className="text-xs text-blue-300">{shareMessage}</p>}
+                        {sportsDirectoryError && <p className="text-xs text-yellow-300">Using fallback sports list: {sportsDirectoryError}</p>}
                     </div>
                 </div>
                 <main className="space-y-8">

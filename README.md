@@ -2,13 +2,17 @@
 
 A React + Vite app to manage Last-Man-Standing style picks using live odds from The Odds API.
 
+For the program architecture, operating principles, API boundaries, and data-flow assumptions, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+
 ## What was refactored
 
 - ✅ Removed hardcoded Odds API key from frontend code.
 - ✅ Added secure server-side endpoint at `api/odds.ts` for Vercel.
+- ✅ Added secure server-side sports endpoint at `api/sports.ts` so active competitions can come from The Odds API instead of a stale hardcoded dropdown.
 - ✅ Split large app logic into focused modules:
   - `constants/sportsDirectory.ts`
   - `hooks/useOddsData.ts`
+  - `services/sportsDirectoryService.ts`
   - `services/oddsTransformService.ts`
   - `services/pickSuggestionService.ts`
   - `utils/shareState.ts`
