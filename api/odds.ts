@@ -43,7 +43,10 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
   const regions = normalizedRegions.length ? Array.from(new Set(normalizedRegions)) : [DEFAULT_REGION];
 
   const marketsRaw = normalizeQueryValue(req.query?.markets) || 'h2h';
-  const markets = marketsRaw === 'h2h' ? 'h2h' : 'h2h';
+  if (marketsRaw !== 'h2h') {
+    return sendJson(res, 400, { error: 'Only h2h markets are currently supported' });
+  }
+  const markets = 'h2h';
 
   const upstreamParams = new URLSearchParams({
     regions: regions.join(','),
