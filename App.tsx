@@ -126,6 +126,7 @@ const App: React.FC = () => {
         lastRefreshTime,
         apiLatency,
         quotaCost,
+        quotaUsage,
         refresh,
     } = useOddsData(currentLeague.key, selectedRegions);
 
@@ -324,7 +325,7 @@ const App: React.FC = () => {
                             {matchWeekends.map(weekend => <MatchWeekendView key={weekend.id} weekend={weekend} bookmakers={allBookmakers} />)}
                             <ArbitragePanel data={apiData} />
                             <DecisionLogPanel logs={decisionLogs} />
-                            <DebugPanel data={apiData} apiLatency={apiLatency} quotaCost={quotaCost} />
+                            <DebugPanel data={apiData} apiLatency={apiLatency} quotaCost={quotaCost} quotaUsage={quotaUsage} />
                         </>
                     )}
                     <OddsHistoryPanel />

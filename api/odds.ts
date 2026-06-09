@@ -91,6 +91,14 @@ export default async function handler(req: IncomingMessage & { query?: Record<st
       console.error('Failed to store odds snapshot:', persistError);
     }
 
+    const quotaHeaderNames = ['x-requests-remaining', 'x-requests-used', 'x-requests-last'];
+    quotaHeaderNames.forEach((headerName) => {
+      const headerValue = response.headers.get(headerName);
+      if (headerValue !== null) {
+        res.setHeader(headerName, headerValue);
+      }
+    });
+
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=240');
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');

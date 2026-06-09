@@ -100,6 +100,12 @@ export interface DecisionLogEntry {
 
 export type Region = 'uk' | 'us' | 'eu' | 'au';
 
+export interface ApiQuotaUsage {
+    requestsRemaining: number | null;
+    requestsUsed: number | null;
+    requestsLast: number | null;
+}
+
 export interface GroundingSource {
     uri: string;
     title: string;

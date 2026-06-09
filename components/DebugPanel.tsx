@@ -1,7 +1,7 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 import React, { useMemo } from 'react';
-import type { ApiMatch, ArbitrageOpportunity } from '../types';
+import type { ApiMatch, ApiQuotaUsage, ArbitrageOpportunity } from '../types';
 import CollapsibleSection from './CollapsibleSection';
 import { normalizeTeamName } from '../utils/teamNameNormalizer';
 
@@ -85,6 +85,7 @@ interface DebugPanelProps {
     data: ApiMatch[] | null;
     apiLatency: number | null;
     quotaCost: number;
+    quotaUsage: ApiQuotaUsage | null;
 }
 
 const StatCard: React.FC<{ label: string; value: string | number; color?: string }> = ({ label, value, color }) => (
@@ -107,7 +108,7 @@ const stdDev = (arr: number[]): number => {
     return Math.sqrt(arr.reduce((acc, val) => acc + (val - mean) ** 2, 0) / arr.length);
 };
 
-const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost }) => {
+const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost, quotaUsage }) => {
     const stats = useMemo(() => {
         if (!data) return null;
 
@@ -302,6 +303,25 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost }) 
                             label="Session Quota Cost" 
                             value={quotaCost} 
                             color={quotaCost > 5 ? 'text-red-400' : 'text-blue-400'} 
+                        />
+                        <StatCard
+                            label="API Quota Used"
+                            value={quotaUsage?.requestsUsed ?? 'N/A'}
+                            color="text-blue-400"
+                        />
+                        <StatCard
+                            label="API Quota Left"
+                            value={quotaUsage?.requestsRemaining ?? 'N/A'}
+                            color={
+                                quotaUsage?.requestsRemaining !== null && quotaUsage?.requestsRemaining !== undefined && quotaUsage.requestsRemaining < 20
+                                    ? 'text-yellow-400'
+                                    : 'text-green-400'
+                            }
+                        />
+                        <StatCard
+                            label="Last API Cost"
+                            value={quotaUsage?.requestsLast ?? 'N/A'}
+                            color="text-purple-400"
                         />
                         <StatCard label="Matches Fetched" value={stats.matchCount} />
                         <StatCard label="Unique Bookmakers" value={stats.bookmakerCount} />

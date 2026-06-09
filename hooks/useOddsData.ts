@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ApiMatch, MatchWeekend, Region } from '../types';
+import type { ApiMatch, ApiQuotaUsage, MatchWeekend, Region } from '../types';
 import { fetchOddsFromApi } from '../services/oddsApiService';
 import { processApiData } from '../services/oddsTransformService';
 
@@ -14,6 +14,7 @@ interface UseOddsDataResult {
   lastRefreshTime: Date | null;
   apiLatency: number | null;
   quotaCost: number;
+  quotaUsage: ApiQuotaUsage | null;
   refresh: () => Promise<void>;
 }
 
@@ -29,6 +30,7 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
   const [apiLatency, setApiLatency] = useState<number | null>(null);
   const [quotaCost, setQuotaCost] = useState(0);
+  const [quotaUsage, setQuotaUsage] = useState<ApiQuotaUsage | null>(null);
 
   const loadOdds = useCallback(
     async (forceRefresh: boolean): Promise<void> => {
@@ -40,7 +42,7 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
         setError(null);
 
         const startTime = performance.now();
-        const { data, fetchedRegionCount } = await fetchOddsFromApi(
+        const { data, fetchedRegionCount, quotaUsage: fetchedQuotaUsage } = await fetchOddsFromApi(
           leagueKey,
           forceRefresh,
           selectedRegions,
@@ -53,7 +55,10 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
 
         if (fetchedRegionCount > 0) {
           setApiLatency(endTime - startTime);
-          setQuotaCost((previous) => previous + fetchedRegionCount);
+          setQuotaCost((previous) => previous + (fetchedQuotaUsage?.requestsLast ?? fetchedRegionCount));
+          if (fetchedQuotaUsage) {
+            setQuotaUsage(fetchedQuotaUsage);
+          }
         }
 
         setApiData(data);
@@ -106,6 +111,7 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
     lastRefreshTime,
     apiLatency,
     quotaCost,
+    quotaUsage,
     refresh,
   };
 }

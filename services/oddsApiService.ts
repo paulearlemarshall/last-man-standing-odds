@@ -1,14 +1,30 @@
 
-import type { ApiMatch, Region } from '../types';
+import type { ApiMatch, ApiQuotaUsage, Region } from '../types';
 
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+const parseQuotaHeader = (headers: Headers, name: string): number | null => {
+    const rawValue = headers.get(name);
+    if (rawValue === null) {
+        return null;
+    }
+
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const readQuotaUsage = (headers: Headers): ApiQuotaUsage => ({
+    requestsRemaining: parseQuotaHeader(headers, 'x-requests-remaining'),
+    requestsUsed: parseQuotaHeader(headers, 'x-requests-used'),
+    requestsLast: parseQuotaHeader(headers, 'x-requests-last'),
+});
 
 export async function fetchOddsFromApi(
     sportKey: string = 'soccer_epl', 
     forceRefresh: boolean = false,
     regions: Region[] = ['uk'],
     signal?: AbortSignal
-): Promise<{ data: ApiMatch[], fetchedRegionCount: number }> {
+): Promise<{ data: ApiMatch[], fetchedRegionCount: number, quotaUsage: ApiQuotaUsage | null }> {
     
     // 1. Identify what we have and what we need
     const regionsToFetch: Region[] = [];
@@ -62,6 +78,9 @@ export async function fetchOddsFromApi(
     if (regionsToFetch.length > 0) {
         const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
         const sortedRegionsToFetch = [...regionsToFetch].sort();
+        let quotaUsage: ApiQuotaUsage | null = null;
+        let requestsLastTotal = 0;
+        let hasRequestsLast = false;
 
         await Promise.all(
             sortedRegionsToFetch.map(async (region) => {
@@ -80,6 +99,13 @@ export async function fetchOddsFromApi(
                     const details = await response.text();
                     throw new Error(`API returned ${response.status}: ${response.statusText}${details ? ` - ${details}` : ''}`);
                 }
+
+                const responseQuotaUsage = readQuotaUsage(response.headers);
+                if (responseQuotaUsage.requestsLast !== null) {
+                    requestsLastTotal += responseQuotaUsage.requestsLast;
+                    hasRequestsLast = true;
+                }
+                quotaUsage = responseQuotaUsage;
 
                 const responseText = await response.text();
                 let freshData: ApiMatch[];
@@ -102,12 +128,19 @@ export async function fetchOddsFromApi(
 
         return {
             data: Array.from(cachedMatches.values()),
-            fetchedRegionCount: sortedRegionsToFetch.length
+            fetchedRegionCount: sortedRegionsToFetch.length,
+            quotaUsage: quotaUsage
+                ? {
+                    ...quotaUsage,
+                    requestsLast: hasRequestsLast ? requestsLastTotal : quotaUsage.requestsLast,
+                }
+                : null
         };
     }
 
     return { 
         data: Array.from(cachedMatches.values()), 
-        fetchedRegionCount: 0 
+        fetchedRegionCount: 0,
+        quotaUsage: null
     };
 }
