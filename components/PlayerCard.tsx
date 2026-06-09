@@ -32,7 +32,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({ player, allTeams, onNameChange,
     };
     
     return (
-        <div className="bg-gray-800 rounded-xl p-4 border border-gray-600 hover:border-green-500 transition-colors duration-300 flex flex-col gap-4">
+        <div className="rainbow-snake-border bg-gray-800 rounded-xl p-4 border border-gray-600 hover:border-green-500 transition-colors duration-300 flex flex-col gap-4">
             <input
                 type="text"
                 value={player.name}

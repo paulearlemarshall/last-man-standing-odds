@@ -14,7 +14,7 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children
   const titleId = `section-title-${title.replace(/\s+/g, '-')}`;
 
   return (
-    <div className="bg-gray-800/50 border border-gray-700 rounded-xl">
+    <div className="rainbow-snake-border bg-gray-800/50 border border-gray-700 rounded-xl">
       <header
         className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-700/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}

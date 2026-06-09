@@ -52,7 +52,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, selectedBookmaker }) => {
   }
 
   return (
-    <div className="relative bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 hover:border-blue-500 transform hover:scale-105 transition-all duration-300 flex flex-col justify-between">
+    <div className="rainbow-snake-border relative bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 hover:border-blue-500 transform hover:scale-105 transition-all duration-300 flex flex-col justify-between">
       <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg z-10">
         Best Odds: {isFinite(bestOdds) ? bestOdds.toFixed(2) : 'N/A'}
       </div>
