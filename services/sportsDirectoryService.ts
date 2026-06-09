@@ -10,10 +10,18 @@ interface ApiSport {
 
 export type SportsDirectory = Record<string, LeagueDefinition[]>;
 
+const DYNAMIC_LOGOS_BY_KEY: Record<string, string> = {
+  soccer_fifa_world_cup:
+    'https://upload.wikimedia.org/wikipedia/en/thumb/1/17/2026_FIFA_World_Cup_emblem.svg/960px-2026_FIFA_World_Cup_emblem.svg.png',
+};
+
 const fallbackLogoByKey = new Map(
-  Object.values(SPORTS_DIRECTORY)
-    .flat()
-    .map((league) => [league.key, league.logo])
+  [
+    ...Object.values(SPORTS_DIRECTORY)
+      .flat()
+      .map((league) => [league.key, league.logo] as const),
+    ...Object.entries(DYNAMIC_LOGOS_BY_KEY),
+  ]
 );
 
 function toSportsDirectory(apiSports: ApiSport[]): SportsDirectory {
