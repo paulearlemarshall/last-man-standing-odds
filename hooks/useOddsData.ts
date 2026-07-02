@@ -42,12 +42,11 @@ export function useOddsData(leagueKey: string, selectedRegions: Region[]): UseOd
         setError(null);
 
         const startTime = performance.now();
-        const { data, fetchedRegionCount, quotaUsage: fetchedQuotaUsage } = await fetchOddsFromApi(
-          leagueKey,
-          forceRefresh,
-          selectedRegions,
-          abortController.signal
-        );
+        const {
+          data,
+          fetchedRegionCount,
+          quotaUsage: fetchedQuotaUsage,
+        } = await fetchOddsFromApi(leagueKey, forceRefresh, selectedRegions, abortController.signal);
         const endTime = performance.now();
         if (abortController.signal.aborted) {
           return;

@@ -204,9 +204,7 @@ const OddsHistoryPanel: React.FC = () => {
         });
       } catch (loadError) {
         if (!abortController.signal.aborted) {
-          setAnalyticsError(
-            loadError instanceof Error ? loadError.message : 'Failed to load available teams'
-          );
+          setAnalyticsError(loadError instanceof Error ? loadError.message : 'Failed to load available teams');
         }
       }
     };
@@ -498,7 +496,8 @@ const OddsHistoryPanel: React.FC = () => {
 
                 {teamForm && (
                   <p className="text-xs text-gray-400">
-                    Time-series controls: {teamForm.bucketMinutes}-minute buckets, min delta {teamForm.minDelta}. Effective buckets: {teamForm.effectiveSampleBuckets}
+                    Time-series controls: {teamForm.bucketMinutes}-minute buckets, min delta {teamForm.minDelta}.
+                    Effective buckets: {teamForm.effectiveSampleBuckets}
                     {teamForm.timeSpanHours !== null ? ` over ${teamForm.timeSpanHours.toFixed(1)}h` : ''}.
                   </p>
                 )}
@@ -555,13 +554,18 @@ const OddsHistoryPanel: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
-                        Tracked matches: <span className="font-semibold text-white">{teamForm.movementSummary.trackedMatches}</span>
+                        Tracked matches:{' '}
+                        <span className="font-semibold text-white">{teamForm.movementSummary.trackedMatches}</span>
                       </div>
                       <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
-                        Moved up: <span className="font-semibold text-emerald-300">{teamForm.movementSummary.movedUpMatches}</span>
+                        Moved up:{' '}
+                        <span className="font-semibold text-emerald-300">
+                          {teamForm.movementSummary.movedUpMatches}
+                        </span>
                       </div>
                       <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
-                        Moved down: <span className="font-semibold text-red-300">{teamForm.movementSummary.movedDownMatches}</span>
+                        Moved down:{' '}
+                        <span className="font-semibold text-red-300">{teamForm.movementSummary.movedDownMatches}</span>
                       </div>
                       <div className="bg-black/20 border border-gray-800 rounded-md p-2 text-xs text-slate-300">
                         Flat: <span className="font-semibold text-white">{teamForm.movementSummary.flatMatches}</span>
@@ -598,7 +602,9 @@ const OddsHistoryPanel: React.FC = () => {
                     </div>
 
                     <div className="overflow-auto">
-                      <h5 className="text-sm text-cyan-200 font-semibold mb-2">Opening vs current movement by fixture</h5>
+                      <h5 className="text-sm text-cyan-200 font-semibold mb-2">
+                        Opening vs current movement by fixture
+                      </h5>
                       <table className="w-full text-xs border-collapse">
                         <thead>
                           <tr className="text-left text-gray-300 border-b border-gray-700">
@@ -702,7 +708,8 @@ const OddsHistoryPanel: React.FC = () => {
 
                 {headToHead && (
                   <p className="text-xs text-gray-400">
-                    Time-series controls: {headToHead.bucketMinutes}-minute buckets, min delta {headToHead.minDelta}. Effective buckets: {headToHead.effectiveSampleBuckets}
+                    Time-series controls: {headToHead.bucketMinutes}-minute buckets, min delta {headToHead.minDelta}.
+                    Effective buckets: {headToHead.effectiveSampleBuckets}
                     {headToHead.timeSpanHours !== null ? ` over ${headToHead.timeSpanHours.toFixed(1)}h` : ''}.
                   </p>
                 )}

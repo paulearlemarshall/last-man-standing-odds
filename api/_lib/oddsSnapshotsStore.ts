@@ -251,11 +251,9 @@ const standardDeviation = (values: number[]): number | null => {
   return Math.sqrt(variance);
 };
 
-const round4 = (value: number | null): number | null =>
-  value === null ? null : Math.round(value * 10000) / 10000;
+const round4 = (value: number | null): number | null => (value === null ? null : Math.round(value * 10000) / 10000);
 
-const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value));
+const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
 
 const ADAPTIVE_BUCKET_CANDIDATES = [15, 30, 60, 180, 360, 720, 1440] as const;
 const MIN_EFFECTIVE_BUCKETS = 4;
@@ -309,10 +307,7 @@ const parseMatchesForInsight = (payload: unknown): MatchForInsight[] => {
         if (!Array.isArray(bookmaker.markets)) return;
 
         const h2h = bookmaker.markets.find(
-          (rawMarket) =>
-            rawMarket &&
-            typeof rawMarket === 'object' &&
-            (rawMarket as ApiOddsMarket).key === 'h2h'
+          (rawMarket) => rawMarket && typeof rawMarket === 'object' && (rawMarket as ApiOddsMarket).key === 'h2h'
         ) as ApiOddsMarket | undefined;
 
         if (!h2h || !Array.isArray(h2h.outcomes)) return;
@@ -573,36 +568,6 @@ const ensureContextSnapshotsNormalized = async (snapshotIds: number[]): Promise<
   }
 };
 
-const buildSnapshotStats = (points: TeamMarketPoint[]): SnapshotStats[] => {
-  const bySnapshot = new Map<number, TeamMarketPoint[]>();
-  points.forEach((point) => {
-    const bucket = bySnapshot.get(point.snapshotId) || [];
-    bucket.push(point);
-    bySnapshot.set(point.snapshotId, bucket);
-  });
-
-  return Array.from(bySnapshot.entries())
-    .map(([snapshotId, bucket]) => {
-      const createdAt = bucket[0]?.createdAt || '';
-      const matchCount = new Set(bucket.map((point) => point.matchId)).size;
-      const sampleQuotes = bucket.length;
-      const avgImpliedProb = average(bucket.map((point) => point.impliedProbNoVig));
-      const avgOdds = average(bucket.map((point) => point.decimalOdds));
-      const avgBookmakersPerMatch = matchCount > 0 ? sampleQuotes / matchCount : null;
-
-      return {
-        snapshotId,
-        createdAt,
-        sampleQuotes,
-        matchCount,
-        avgImpliedProb,
-        avgOdds,
-        avgBookmakersPerMatch,
-      };
-    })
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-};
-
 const bucketAndFilterTeamPoints = (
   points: TeamMarketPoint[],
   bucketMinutes: number,
@@ -804,7 +769,11 @@ const buildConfidenceScore = (input: {
   const timeSpanComponent = clamp((input.timeSpanHours ?? 0) / 72, 0, 1) * 0.2;
   const overlapComponent = clamp(input.overlapCoverage ?? 1, 0, 1) * 0.1;
   const volatilityPenalty = input.volatility === null ? 0.05 : clamp(input.volatility / 0.25, 0, 1) * 0.15;
-  const confidence = clamp(sampleComponent + snapshotComponent + timeSpanComponent + overlapComponent - volatilityPenalty, 0, 1);
+  const confidence = clamp(
+    sampleComponent + snapshotComponent + timeSpanComponent + overlapComponent - volatilityPenalty,
+    0,
+    1
+  );
   return Math.round(confidence * 100) / 100;
 };
 
@@ -955,10 +924,7 @@ export const getOddsSnapshotById = async (id: number): Promise<OddsSnapshotDetai
   };
 };
 
-export const getOddsSnapshotInsights = async (
-  id: number,
-  lookbackCount = 10
-): Promise<OddsSnapshotInsights | null> => {
+export const getOddsSnapshotInsights = async (id: number, lookbackCount = 10): Promise<OddsSnapshotInsights | null> => {
   await ensureSnapshotsSchema();
   const sql = getSqlClient();
 
@@ -1060,9 +1026,7 @@ export const listTrackedTeamsForSnapshot = async (snapshotId: number): Promise<s
     ORDER BY outcome_name ASC
   `) as { outcome_name: string }[];
 
-  return rows
-    .map((row) => row.outcome_name)
-    .filter((name) => typeof name === 'string' && name.length > 0);
+  return rows.map((row) => row.outcome_name).filter((name) => typeof name === 'string' && name.length > 0);
 };
 
 export const getTeamFormAnalytics = async (
@@ -1145,10 +1109,11 @@ export const getTeamFormAnalytics = async (
       const snapshotValues = Array.from(match.snapshots.values())
         .map((snapshot) => ({
           createdAt: snapshot.createdAt,
-          avgImpliedProb:
-            snapshot.impliedProbCount > 0 ? snapshot.impliedProbSum / snapshot.impliedProbCount : null,
+          avgImpliedProb: snapshot.impliedProbCount > 0 ? snapshot.impliedProbSum / snapshot.impliedProbCount : null,
         }))
-        .filter((snapshot): snapshot is { createdAt: string; avgImpliedProb: number } => snapshot.avgImpliedProb !== null)
+        .filter(
+          (snapshot): snapshot is { createdAt: string; avgImpliedProb: number } => snapshot.avgImpliedProb !== null
+        )
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       if (!snapshotValues.length) {
@@ -1193,11 +1158,8 @@ export const getTeamFormAnalytics = async (
   const last = timelineStats[timelineStats.length - 1];
 
   const avgImpliedProb = average(points.map((point) => point.impliedProbNoVig));
-  const avgOdds = average(points.map((point) => point.decimalOdds));
   const volatility = standardDeviation(
-    timelineStats
-      .map((point) => point.avgImpliedProb)
-      .filter((value): value is number => value !== null)
+    timelineStats.map((point) => point.avgImpliedProb).filter((value): value is number => value !== null)
   );
 
   const impliedProbDelta =
@@ -1205,9 +1167,7 @@ export const getTeamFormAnalytics = async (
       ? last.avgImpliedProb - first.avgImpliedProb
       : null;
   const momentumPerSnapshot =
-    impliedProbDelta !== null && timelineStats.length > 1
-      ? impliedProbDelta / (timelineStats.length - 1)
-      : null;
+    impliedProbDelta !== null && timelineStats.length > 1 ? impliedProbDelta / (timelineStats.length - 1) : null;
 
   const opponentMap = new Map<string, TeamMarketPoint[]>();
   points.forEach((point) => {
@@ -1223,10 +1183,7 @@ export const getTeamFormAnalytics = async (
       const firstPoint = stats[0];
       const lastPoint = stats[stats.length - 1];
       const trendDelta =
-        firstPoint &&
-        lastPoint &&
-        firstPoint.avgImpliedProb !== null &&
-        lastPoint.avgImpliedProb !== null
+        firstPoint && lastPoint && firstPoint.avgImpliedProb !== null && lastPoint.avgImpliedProb !== null
           ? lastPoint.avgImpliedProb - firstPoint.avgImpliedProb
           : null;
 
@@ -1250,8 +1207,7 @@ export const getTeamFormAnalytics = async (
     snapshotCount: timelineStats.length,
     volatility,
     timeSpanHours,
-    overlapCoverage:
-      contextSnapshots.length > 0 ? timelineStats.length / contextSnapshots.length : 0,
+    overlapCoverage: contextSnapshots.length > 0 ? timelineStats.length / contextSnapshots.length : 0,
   });
 
   const movementThreshold = 0.0005;
@@ -1260,9 +1216,7 @@ export const getTeamFormAnalytics = async (
   const flatMatches = matchMovements.length - movedUpMatches - movedDownMatches;
   const openingVsCurrentAvgDelta = average(matchMovements.map((movement) => movement.impliedProbDelta));
   const movementVelocityPerDay = average(
-    matchMovements
-      .map((movement) => movement.movementPerDay)
-      .filter((value): value is number => value !== null)
+    matchMovements.map((movement) => movement.movementPerDay).filter((value): value is number => value !== null)
   );
 
   return {
@@ -1357,12 +1311,8 @@ export const getHeadToHeadAnalytics = async (
     return null;
   }
 
-  const rawPointsA = rows
-    .filter((row) => row.outcome_name === normalizedTeamA)
-    .map((row) => toTeamMarketPoint(row));
-  const rawPointsB = rows
-    .filter((row) => row.outcome_name === normalizedTeamB)
-    .map((row) => toTeamMarketPoint(row));
+  const rawPointsA = rows.filter((row) => row.outcome_name === normalizedTeamA).map((row) => toTeamMarketPoint(row));
+  const rawPointsB = rows.filter((row) => row.outcome_name === normalizedTeamB).map((row) => toTeamMarketPoint(row));
 
   const candidates = getAdaptiveBucketCandidates(bucketMinutes);
 

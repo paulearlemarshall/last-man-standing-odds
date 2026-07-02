@@ -1,5 +1,4 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -25,26 +24,25 @@
       }
 
       .rainbow-snake-border::before {
-        content: "";
+        content: '';
         position: absolute;
         inset: 0;
         border-radius: inherit;
         padding: 2px;
         pointer-events: none;
-        background:
-          conic-gradient(
-            from var(--snake-angle),
-            transparent 0deg,
-            transparent 230deg,
-            #ef4444 250deg,
-            #f97316 268deg,
-            #eab308 286deg,
-            #22c55e 304deg,
-            #06b6d4 322deg,
-            #3b82f6 340deg,
-            #a855f7 354deg,
-            transparent 360deg
-          );
+        background: conic-gradient(
+          from var(--snake-angle),
+          transparent 0deg,
+          transparent 230deg,
+          #ef4444 250deg,
+          #f97316 268deg,
+          #eab308 286deg,
+          #22c55e 304deg,
+          #06b6d4 322deg,
+          #3b82f6 340deg,
+          #a855f7 354deg,
+          transparent 360deg
+        );
         -webkit-mask:
           linear-gradient(#000 0 0) content-box,
           linear-gradient(#000 0 0);
@@ -59,7 +57,7 @@
         }
       }
     </style>
-</head>
+  </head>
   <body class="bg-gray-900 text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

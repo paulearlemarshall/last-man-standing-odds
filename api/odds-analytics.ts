@@ -35,12 +35,8 @@ export default async function handler(
   const lookback = Number.parseInt(lookbackRaw || '30', 10);
   const bucketMinutesParsed = Number.parseInt(bucketMinutesRaw || '15', 10);
   const minDeltaParsed = Number.parseFloat(minDeltaRaw || '0.002');
-  const bucketMinutes = Number.isFinite(bucketMinutesParsed)
-    ? Math.max(1, Math.min(bucketMinutesParsed, 120))
-    : 15;
-  const minDelta = Number.isFinite(minDeltaParsed)
-    ? Math.max(0, Math.min(minDeltaParsed, 0.1))
-    : 0.002;
+  const bucketMinutes = Number.isFinite(bucketMinutesParsed) ? Math.max(1, Math.min(bucketMinutesParsed, 120)) : 15;
+  const minDelta = Number.isFinite(minDeltaParsed) ? Math.max(0, Math.min(minDeltaParsed, 0.1)) : 0.002;
 
   const snapshotId = Number.parseInt(snapshotIdRaw, 10);
   if (!Number.isFinite(snapshotId) || snapshotId <= 0) {

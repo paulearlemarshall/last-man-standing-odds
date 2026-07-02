@@ -1,4 +1,3 @@
-
 // Raw types from The Odds API
 export interface ApiOutcome {
   name: string;
@@ -76,162 +75,162 @@ export interface Player {
 }
 
 export interface ArbitrageOpportunity {
-    matchId: string;
-    matchTitle: string;
-    commenceTime: string;
-    profitPercentage: number;
-    outcomes: {
-        name: string;
-        price: number;
-        bookmaker: string;
-        stakePercentage: number;
-    }[];
+  matchId: string;
+  matchTitle: string;
+  commenceTime: string;
+  profitPercentage: number;
+  outcomes: {
+    name: string;
+    price: number;
+    bookmaker: string;
+    stakePercentage: number;
+  }[];
 }
 
 export interface PotentialPick extends Suggestion {}
 
 export interface DecisionLogEntry {
-    id: number;
-    message: string;
-    type: 'info' | 'success' | 'warning' | 'error' | 'process';
-    timestamp: number;
-    details?: string;
+  id: number;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'process';
+  timestamp: number;
+  details?: string;
 }
 
 export type Region = 'uk' | 'us' | 'eu' | 'au';
 
 export interface ApiQuotaUsage {
-    requestsRemaining: number | null;
-    requestsUsed: number | null;
-    requestsLast: number | null;
+  requestsRemaining: number | null;
+  requestsUsed: number | null;
+  requestsLast: number | null;
 }
 
 export interface GroundingSource {
-    uri: string;
-    title: string;
+  uri: string;
+  title: string;
 }
 
 export interface OddsSnapshotSummary {
-    id: number;
-    createdAt: string;
-    sportKey: string;
-    regions: string;
-    markets: string;
-    matchCount: number;
+  id: number;
+  createdAt: string;
+  sportKey: string;
+  regions: string;
+  markets: string;
+  matchCount: number;
 }
 
 export interface OddsSnapshotDetail extends OddsSnapshotSummary {
-    sourceUrl: string;
-    payload: unknown;
-    insights?: OddsSnapshotInsights | null;
+  sourceUrl: string;
+  payload: unknown;
+  insights?: OddsSnapshotInsights | null;
 }
 
 export interface OddsSnapshotInsightPoint {
-    snapshotId: number;
-    createdAt: string;
-    avgHomeOdds: number | null;
-    avgAwayOdds: number | null;
-    avgBookmakersPerMatch: number | null;
-    trackedMatchCount: number;
+  snapshotId: number;
+  createdAt: string;
+  avgHomeOdds: number | null;
+  avgAwayOdds: number | null;
+  avgBookmakersPerMatch: number | null;
+  trackedMatchCount: number;
 }
 
 export interface OddsSnapshotInsights {
-    lookbackCount: number;
-    currentSnapshotId: number;
-    currentCreatedAt: string;
-    currentMatchCount: number;
-    trackedMatchCount: number;
-    avgHomeOddsDelta: number | null;
-    avgAwayOddsDelta: number | null;
-    avgBookmakersPerMatchDelta: number | null;
-    timeline: OddsSnapshotInsightPoint[];
+  lookbackCount: number;
+  currentSnapshotId: number;
+  currentCreatedAt: string;
+  currentMatchCount: number;
+  trackedMatchCount: number;
+  avgHomeOddsDelta: number | null;
+  avgAwayOddsDelta: number | null;
+  avgBookmakersPerMatchDelta: number | null;
+  timeline: OddsSnapshotInsightPoint[];
 }
 
 export interface TeamFormTimelinePoint {
-    snapshotId: number;
-    createdAt: string;
-    sampleQuotes: number;
-    matchCount: number;
-    avgImpliedProb: number | null;
-    avgOdds: number | null;
-    avgBookmakersPerMatch: number | null;
+  snapshotId: number;
+  createdAt: string;
+  sampleQuotes: number;
+  matchCount: number;
+  avgImpliedProb: number | null;
+  avgOdds: number | null;
+  avgBookmakersPerMatch: number | null;
 }
 
 export interface TeamOpponentEdge {
-    opponent: string;
-    sampleQuotes: number;
-    matchCount: number;
-    avgImpliedProb: number | null;
-    trendDelta: number | null;
+  opponent: string;
+  sampleQuotes: number;
+  matchCount: number;
+  avgImpliedProb: number | null;
+  trendDelta: number | null;
 }
 
 export interface TeamMatchMovement {
-    matchId: string;
-    opponent: string;
-    commenceTime: string;
-    snapshotsObserved: number;
-    openingImpliedProb: number | null;
-    currentImpliedProb: number | null;
-    impliedProbDelta: number | null;
-    movementPerDay: number | null;
+  matchId: string;
+  opponent: string;
+  commenceTime: string;
+  snapshotsObserved: number;
+  openingImpliedProb: number | null;
+  currentImpliedProb: number | null;
+  impliedProbDelta: number | null;
+  movementPerDay: number | null;
 }
 
 export interface TeamMovementSummary {
-    trackedMatches: number;
-    movedUpMatches: number;
-    movedDownMatches: number;
-    flatMatches: number;
-    avgImpliedProbDelta: number | null;
-    avgMovementPerDay: number | null;
+  trackedMatches: number;
+  movedUpMatches: number;
+  movedDownMatches: number;
+  flatMatches: number;
+  avgImpliedProbDelta: number | null;
+  avgMovementPerDay: number | null;
 }
 
 export interface TeamFormAnalytics {
-    team: string;
-    lookbackSnapshots: number;
-    bucketMinutes: number;
-    minDelta: number;
-    effectiveSampleBuckets: number;
-    timeSpanHours: number | null;
-    sampleQuotes: number;
-    totalMatches: number;
-    avgImpliedProb: number | null;
-    currentImpliedProb: number | null;
-    impliedProbDelta: number | null;
-    momentumPerSnapshot: number | null;
-    volatility: number | null;
-    confidenceScore: number;
-    openingVsCurrentAvgDelta: number | null;
-    movementVelocityPerDay: number | null;
-    movementSummary: TeamMovementSummary;
-    timeline: TeamFormTimelinePoint[];
-    opponents: TeamOpponentEdge[];
-    matchMovements: TeamMatchMovement[];
+  team: string;
+  lookbackSnapshots: number;
+  bucketMinutes: number;
+  minDelta: number;
+  effectiveSampleBuckets: number;
+  timeSpanHours: number | null;
+  sampleQuotes: number;
+  totalMatches: number;
+  avgImpliedProb: number | null;
+  currentImpliedProb: number | null;
+  impliedProbDelta: number | null;
+  momentumPerSnapshot: number | null;
+  volatility: number | null;
+  confidenceScore: number;
+  openingVsCurrentAvgDelta: number | null;
+  movementVelocityPerDay: number | null;
+  movementSummary: TeamMovementSummary;
+  timeline: TeamFormTimelinePoint[];
+  opponents: TeamOpponentEdge[];
+  matchMovements: TeamMatchMovement[];
 }
 
 export interface HeadToHeadTimelinePoint {
-    snapshotId: number;
-    createdAt: string;
-    avgImpliedProbA: number | null;
-    avgImpliedProbB: number | null;
-    edgeA: number | null;
-    sampleQuotes: number;
-    matchCount: number;
+  snapshotId: number;
+  createdAt: string;
+  avgImpliedProbA: number | null;
+  avgImpliedProbB: number | null;
+  edgeA: number | null;
+  sampleQuotes: number;
+  matchCount: number;
 }
 
 export interface HeadToHeadAnalytics {
-    teamA: string;
-    teamB: string;
-    lookbackSnapshots: number;
-    bucketMinutes: number;
-    minDelta: number;
-    effectiveSampleBuckets: number;
-    timeSpanHours: number | null;
-    sampleQuotes: number;
-    totalMatches: number;
-    currentEdgeA: number | null;
-    edgeDeltaA: number | null;
-    avgImpliedProbA: number | null;
-    avgImpliedProbB: number | null;
-    confidenceScore: number;
-    timeline: HeadToHeadTimelinePoint[];
+  teamA: string;
+  teamB: string;
+  lookbackSnapshots: number;
+  bucketMinutes: number;
+  minDelta: number;
+  effectiveSampleBuckets: number;
+  timeSpanHours: number | null;
+  sampleQuotes: number;
+  totalMatches: number;
+  currentEdgeA: number | null;
+  edgeDeltaA: number | null;
+  avgImpliedProbA: number | null;
+  avgImpliedProbB: number | null;
+  confidenceScore: number;
+  timeline: HeadToHeadTimelinePoint[];
 }

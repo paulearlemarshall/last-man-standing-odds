@@ -1,7 +1,7 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 import React, { useState, useMemo } from 'react';
-import type { MatchWeekend, MatchOdds } from '../types';
+import type { MatchWeekend } from '../types';
 import MatchCard from './MatchCard';
 import OddsVisualization from './OddsVisualization';
 import CollapsibleSection from './CollapsibleSection';
@@ -67,67 +67,104 @@ const MatchWeekendView: React.FC<MatchWeekendViewProps> = ({ weekend, bookmakers
   const sortedMatches = useMemo(() => {
     const sortableMatches = [...weekend.matches];
     sortableMatches.sort((a, b) => {
-        let aValue: number, bValue: number;
+      let aValue: number, bValue: number;
 
-        const aOdds = getOddsForBookmaker(a, selectedBookmaker);
-        const bOdds = getOddsForBookmaker(b, selectedBookmaker);
+      const aOdds = getOddsForBookmaker(a, selectedBookmaker);
+      const bOdds = getOddsForBookmaker(b, selectedBookmaker);
 
-        switch (sortConfig.key) {
-            case 'matchDate':
-                aValue = new Date(a.commence_time).getTime();
-                bValue = new Date(b.commence_time).getTime();
-                break;
-            case 'homeWin': aValue = aOdds.homeWin; bValue = bOdds.homeWin; break;
-            case 'draw': aValue = aOdds.draw; bValue = bOdds.draw; break;
-            case 'awayWin': aValue = aOdds.awayWin; bValue = bOdds.awayWin; break;
-            case 'bestOdds': aValue = aOdds.bestOdds; bValue = bOdds.bestOdds; break;
-            default: return 0;
-        }
+      switch (sortConfig.key) {
+        case 'matchDate':
+          aValue = new Date(a.commence_time).getTime();
+          bValue = new Date(b.commence_time).getTime();
+          break;
+        case 'homeWin':
+          aValue = aOdds.homeWin;
+          bValue = bOdds.homeWin;
+          break;
+        case 'draw':
+          aValue = aOdds.draw;
+          bValue = bOdds.draw;
+          break;
+        case 'awayWin':
+          aValue = aOdds.awayWin;
+          bValue = bOdds.awayWin;
+          break;
+        case 'bestOdds':
+          aValue = aOdds.bestOdds;
+          bValue = bOdds.bestOdds;
+          break;
+        default:
+          return 0;
+      }
 
-        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
-        return 0;
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
     });
     return sortableMatches;
   }, [weekend.matches, sortConfig, selectedBookmaker]);
 
   return (
     <CollapsibleSection title={weekend.title}>
-        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <p className="text-gray-400">{weekend.dateRange}</p>
-            <div className="flex items-center gap-3">
-              <label htmlFor={`bookmaker-select-${weekend.id}`} className="font-medium text-gray-300 text-sm">Bookmaker:</label>
-              <select
-                id={`bookmaker-select-${weekend.id}`}
-                value={selectedBookmaker}
-                onChange={(e) => setSelectedBookmaker(e.target.value)}
-                className="bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-2 focus:ring-green-500 focus:outline-none text-sm capitalize"
-              >
-                {bookmakers.map(b => <option key={b} value={b} className="capitalize">{b.replace(/_/g, ' ')}</option>)}
-              </select>
-            </div>
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <p className="text-gray-400">{weekend.dateRange}</p>
+        <div className="flex items-center gap-3">
+          <label htmlFor={`bookmaker-select-${weekend.id}`} className="font-medium text-gray-300 text-sm">
+            Bookmaker:
+          </label>
+          <select
+            id={`bookmaker-select-${weekend.id}`}
+            value={selectedBookmaker}
+            onChange={(e) => setSelectedBookmaker(e.target.value)}
+            className="bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:ring-2 focus:ring-green-500 focus:outline-none text-sm capitalize"
+          >
+            {bookmakers.map((b) => (
+              <option key={b} value={b} className="capitalize">
+                {b.replace(/_/g, ' ')}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="mb-6 flex-shrink-0 flex flex-wrap items-center justify-start sm:justify-end gap-2" role="toolbar" aria-label="Sort matches">
-            <SortButton label="Date" sortKey="matchDate" sortConfig={sortConfig} setSortConfig={setSortConfig} color="slate" />
-            <SortButton label="Home" sortKey="homeWin" sortConfig={sortConfig} setSortConfig={setSortConfig} color="blue" />
-            <SortButton label="Draw" sortKey="draw" sortConfig={sortConfig} setSortConfig={setSortConfig} color="yellow" />
-            <SortButton label="Away" sortKey="awayWin" sortConfig={sortConfig} setSortConfig={setSortConfig} color="purple" />
-            <SortButton label="Best" sortKey="bestOdds" sortConfig={sortConfig} setSortConfig={setSortConfig} color="green" />
-        </div>
+      </div>
+      <div
+        className="mb-6 flex-shrink-0 flex flex-wrap items-center justify-start sm:justify-end gap-2"
+        role="toolbar"
+        aria-label="Sort matches"
+      >
+        <SortButton
+          label="Date"
+          sortKey="matchDate"
+          sortConfig={sortConfig}
+          setSortConfig={setSortConfig}
+          color="slate"
+        />
+        <SortButton label="Home" sortKey="homeWin" sortConfig={sortConfig} setSortConfig={setSortConfig} color="blue" />
+        <SortButton label="Draw" sortKey="draw" sortConfig={sortConfig} setSortConfig={setSortConfig} color="yellow" />
+        <SortButton
+          label="Away"
+          sortKey="awayWin"
+          sortConfig={sortConfig}
+          setSortConfig={setSortConfig}
+          color="purple"
+        />
+        <SortButton
+          label="Best"
+          sortKey="bestOdds"
+          sortConfig={sortConfig}
+          setSortConfig={setSortConfig}
+          color="green"
+        />
+      </div>
 
-        <div className="space-y-8">
-            <OddsVisualization matches={weekend.matches} selectedBookmaker={selectedBookmaker} />
+      <div className="space-y-8">
+        <OddsVisualization matches={weekend.matches} selectedBookmaker={selectedBookmaker} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedMatches.map((match) => (
-                  <MatchCard 
-                    key={match.id} 
-                    match={match}
-                    selectedBookmaker={selectedBookmaker}
-                  />
-                ))}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedMatches.map((match) => (
+            <MatchCard key={match.id} match={match} selectedBookmaker={selectedBookmaker} />
+          ))}
         </div>
+      </div>
     </CollapsibleSection>
   );
 };

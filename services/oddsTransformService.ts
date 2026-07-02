@@ -32,7 +32,11 @@ function createWeekend(matches: MatchOdds[], weekNumber: number): MatchWeekend {
   };
 }
 
-export function processApiData(apiData: ApiMatch[]): { weekends: MatchWeekend[]; bookmakers: string[]; allTeams: string[] } {
+export function processApiData(apiData: ApiMatch[]): {
+  weekends: MatchWeekend[];
+  bookmakers: string[];
+  allTeams: string[];
+} {
   const bookmakerSet = new Set<string>(['average']);
   const teamSet = new Set<string>();
 

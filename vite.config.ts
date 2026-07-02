@@ -6,34 +6,34 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
-    const apiProxyTarget = (env.VITE_API_PROXY_TARGET || '').trim();
-    return {
-      server: {
-        port: 3000,
-        host: '0.0.0.0',
-        ...(apiProxyTarget
-          ? {
-              proxy: {
-                '/api': {
-                  target: apiProxyTarget,
-                  changeOrigin: true,
-                  secure: apiProxyTarget.startsWith('https://'),
-                },
+  const env = loadEnv(mode, '.', '');
+  const apiProxyTarget = (env.VITE_API_PROXY_TARGET || '').trim();
+  return {
+    server: {
+      port: 3000,
+      host: '0.0.0.0',
+      ...(apiProxyTarget
+        ? {
+            proxy: {
+              '/api': {
+                target: apiProxyTarget,
+                changeOrigin: true,
+                secure: apiProxyTarget.startsWith('https://'),
               },
-            }
-          : {}),
+            },
+          }
+        : {}),
+    },
+    esbuild: {
+      jsx: 'transform',
+      jsxFactory: 'React.createElement',
+      jsxFragment: 'React.Fragment',
+      jsxDev: false,
+    },
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
       },
-      esbuild: {
-        jsx: 'transform',
-        jsxFactory: 'React.createElement',
-        jsxFragment: 'React.Fragment',
-        jsxDev: false,
-      },
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
-        }
-      }
-    };
+    },
+  };
 });

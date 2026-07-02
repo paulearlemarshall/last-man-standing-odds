@@ -21,7 +21,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, children
         aria-expanded={isOpen}
         aria-controls={sectionId}
       >
-        <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-white">{title}</h2>
+        <h2 id={titleId} className="text-xl sm:text-2xl font-bold text-white">
+          {title}
+        </h2>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className={`h-6 w-6 text-gray-400 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}

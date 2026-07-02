@@ -12,7 +12,10 @@ function sendJson(res: ServerResponse, statusCode: number, payload: unknown): vo
   res.end(JSON.stringify(payload));
 }
 
-export default async function handler(req: IncomingMessage & { query?: Record<string, string | string[]> }, res: ServerResponse) {
+export default async function handler(
+  req: IncomingMessage & { query?: Record<string, string | string[]> },
+  res: ServerResponse
+) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return sendJson(res, 405, { error: 'Method not allowed' });

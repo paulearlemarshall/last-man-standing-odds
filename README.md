@@ -50,6 +50,7 @@ Use `.env.example` as reference.
 5. Deploy.
 
 Vercel will serve:
+
 - frontend app from Vite build output
 - serverless endpoint from `api/odds.ts`
 

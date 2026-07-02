@@ -80,7 +80,7 @@ The static file `constants/sportsDirectory.ts` is now fallback metadata. It is s
 The active dropdown should come from `services/sportsDirectoryService.ts`, which calls `/api/sports` and maps the upstream sports into:
 
 ```ts
-Record<string, LeagueDefinition[]>
+Record<string, LeagueDefinition[]>;
 ```
 
 Outrights are excluded because entries such as `soccer_fifa_world_cup_winner` do not represent a single fixture. They need separate UI and analytics if supported later.
@@ -200,4 +200,3 @@ When extending the app:
 - Add tests or run typecheck/build after touching shared data types, API route contracts, or transform logic.
 - Prefer API-provided active sports over static league lists.
 - Keep fallback behavior visible to the user when dynamic loading fails.
-
