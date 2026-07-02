@@ -4,59 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Premier League Odds Finder</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      @property --snake-angle {
-        syntax: '<angle>';
-        inherits: false;
-        initial-value: 0deg;
-      }
-
-      @keyframes rainbow-snake {
-        to {
-          --snake-angle: 360deg;
-        }
-      }
-
-      .rainbow-snake-border {
-        position: relative;
-        isolation: isolate;
-      }
-
-      .rainbow-snake-border::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 2px;
-        pointer-events: none;
-        background: conic-gradient(
-          from var(--snake-angle),
-          transparent 0deg,
-          transparent 230deg,
-          #ef4444 250deg,
-          #f97316 268deg,
-          #eab308 286deg,
-          #22c55e 304deg,
-          #06b6d4 322deg,
-          #3b82f6 340deg,
-          #a855f7 354deg,
-          transparent 360deg
-        );
-        -webkit-mask:
-          linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        animation: rainbow-snake 12s linear infinite;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .rainbow-snake-border::before {
-          animation: none;
-        }
-      }
-    </style>
   </head>
   <body class="bg-gray-900 text-white">
     <div id="root"></div>
