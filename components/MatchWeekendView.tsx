@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React, { useState, useMemo } from 'react';
 import type { MatchWeekend } from '../types';
 import MatchCard from './MatchCard';

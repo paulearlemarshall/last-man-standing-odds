@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React, { useState } from 'react';
 
 interface CollapsibleSectionProps {

@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React, { useEffect, useMemo, useState } from 'react';
 import type { DecisionLogEntry, Player, Region } from './types';
 

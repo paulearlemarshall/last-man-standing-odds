@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React from 'react';
 import type { DecisionLogEntry } from '../types';
 import CollapsibleSection from './CollapsibleSection';

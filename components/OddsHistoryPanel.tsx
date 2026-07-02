@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   HeadToHeadAnalytics,

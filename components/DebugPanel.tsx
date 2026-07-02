@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React, { useMemo } from 'react';
 import type { ApiMatch, ApiQuotaUsage } from '../types';
 import CollapsibleSection from './CollapsibleSection';

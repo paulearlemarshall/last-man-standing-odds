@@ -1,5 +1,3 @@
-/** @jsx React.createElement */
-/** @jsxFrag React.Fragment */
 import React from 'react';
 import type { MatchOdds } from '../types';
 import { getOddsForBookmaker } from '../utils/oddsHelper';
