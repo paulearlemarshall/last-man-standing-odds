@@ -98,11 +98,10 @@ Outrights are excluded because entries such as `soccer_fifa_world_cup_winner` do
 
 `services/oddsApiService.ts` handles browser-side fetching and short-lived local cache:
 
-- Cache key is per sport and region.
+- Cache key is per sport and exact sorted region set.
 - Cache duration is 5 minutes.
-- Regions are fetched independently.
-- Results from multiple regions are merged by match id.
-- Bookmakers from different regions are merged into the same match.
+- Selected regions are sent in one batched request.
+- Expired and malformed odds cache entries are swept automatically.
 
 The app requests:
 
@@ -143,11 +142,11 @@ Supported regions are:
 uk, us, eu, au
 ```
 
-Each selected region can trigger a separate API fetch. More regions generally means broader bookmaker coverage, but higher quota cost. The UI tracks quota cost as the number of fetched regions.
+The selected region set is sent in one API request. More regions generally means broader bookmaker coverage and may increase upstream quota cost. Quota response headers and snapshot persistence status remain visible in the Debug panel.
 
 ## Share State
 
-`utils/shareState.ts` encodes player picks into the URL. `App.tsx` also persists:
+`utils/shareState.ts` encodes player picks by normalized team name using the versioned v2 format. Legacy index-based links remain readable. Duplicate player ids are ignored. `App.tsx` also persists:
 
 - `sport`
 - `league`
@@ -164,6 +163,12 @@ Odds snapshots are stored through `api/_lib/oddsSnapshotsStore.ts`. The history 
 - `api/odds-analytics.ts`
 
 Those modules assume h2h fixture data. They should be reviewed before adding non-h2h market support.
+
+Payload hashes prevent identical consecutive context snapshots from being stored repeatedly. Normalized market points cascade when snapshots are deleted. A protected daily Vercel cron removes snapshots older than 30 days, and `npm run db:migrate` provisions the schema and indexes.
+
+## Theme
+
+The interface supports light, dark, and system theme preferences. The selection is stored locally, system changes are observed live, and a pre-render script applies the resolved theme before first paint.
 
 ## Deployment
 
@@ -184,10 +189,16 @@ Fallback accepted variable:
 ODDS_API_KEY
 ```
 
-Optional environment variable:
+Persistence environment variable:
 
 ```text
-GEMINI_API_KEY
+DATABASE_URL
+```
+
+Scheduled cleanup environment variable:
+
+```text
+CRON_SECRET
 ```
 
 ## Extension Guidelines

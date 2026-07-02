@@ -30,7 +30,7 @@ export interface ApiMatch {
 // Processed types for internal application use
 export interface Outcome {
   name: string;
-  price: number;
+  price: number | null;
 }
 
 export interface Market {
@@ -103,6 +103,7 @@ export interface ApiQuotaUsage {
   requestsRemaining: number | null;
   requestsUsed: number | null;
   requestsLast: number | null;
+  snapshotStored: boolean | null;
 }
 
 export interface GroundingSource {

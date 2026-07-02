@@ -100,9 +100,9 @@ export function processApiData(apiData: ApiMatch[]): {
         {
           key: 'h2h' as const,
           outcomes: [
-            { name: homeTeam, price: homeCount > 0 ? homeTotal / homeCount : Infinity },
-            { name: awayTeam, price: awayCount > 0 ? awayTotal / awayCount : Infinity },
-            { name: 'Draw', price: drawCount > 0 ? drawTotal / drawCount : Infinity },
+            { name: homeTeam, price: homeCount > 0 ? homeTotal / homeCount : null },
+            { name: awayTeam, price: awayCount > 0 ? awayTotal / awayCount : null },
+            { name: 'Draw', price: drawCount > 0 ? drawTotal / drawCount : null },
           ],
         },
       ],

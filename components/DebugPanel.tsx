@@ -56,9 +56,9 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost, qu
     let validOddsCount = 0;
     let totalPossibleOdds = 0;
 
-    let minOdd = { odd: Infinity, team: '', match: '' };
-    let maxOdd = { odd: 0, team: '', match: '' };
-    let mostCompetitiveMatch = { stdDev: Infinity, match: '' };
+    let minOdd: { odd: number; team: string; match: string } | null = null;
+    let maxOdd: { odd: number; team: string; match: string } | null = null;
+    let mostCompetitiveMatch: { stdDev: number; match: string } | null = null;
     let marketDisagreement = { match: '', outcome: '', stdDev: 0 };
 
     const bookmakerVigorish = new Map<string, { totalVig: number; count: number }>();
@@ -171,19 +171,23 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost, qu
       if (drawStdDev > marketDisagreement.stdDev)
         marketDisagreement = { match: matchTitle, outcome: 'Draw', stdDev: drawStdDev };
 
-      const avgHome = homeCount > 0 ? homeTotal / homeCount : Infinity;
-      const avgAway = awayCount > 0 ? awayTotal / awayCount : Infinity;
-      const avgDraw = drawCount > 0 ? drawTotal / drawCount : Infinity;
+      const avgHome = homeCount > 0 ? homeTotal / homeCount : null;
+      const avgAway = awayCount > 0 ? awayTotal / awayCount : null;
+      const avgDraw = drawCount > 0 ? drawTotal / drawCount : null;
 
-      if (avgHome < minOdd.odd) minOdd = { odd: avgHome, team: homeTeam, match: matchTitle };
-      if (avgAway < minOdd.odd) minOdd = { odd: avgAway, team: awayTeam, match: matchTitle };
-      if (avgHome > maxOdd.odd && isFinite(avgHome)) maxOdd = { odd: avgHome, team: homeTeam, match: matchTitle };
-      if (avgAway > maxOdd.odd && isFinite(avgAway)) maxOdd = { odd: avgAway, team: awayTeam, match: matchTitle };
+      if (avgHome !== null && (!minOdd || avgHome < minOdd.odd))
+        minOdd = { odd: avgHome, team: homeTeam, match: matchTitle };
+      if (avgAway !== null && (!minOdd || avgAway < minOdd.odd))
+        minOdd = { odd: avgAway, team: awayTeam, match: matchTitle };
+      if (avgHome !== null && (!maxOdd || avgHome > maxOdd.odd))
+        maxOdd = { odd: avgHome, team: homeTeam, match: matchTitle };
+      if (avgAway !== null && (!maxOdd || avgAway > maxOdd.odd))
+        maxOdd = { odd: avgAway, team: awayTeam, match: matchTitle };
 
       // Calculate competitiveness (StdDev of probabilities)
-      let stdDevVal = Infinity;
-      if (isFinite(avgHome) && isFinite(avgAway)) {
-        if (isFinite(avgDraw)) {
+      let stdDevVal: number | null = null;
+      if (avgHome !== null && avgAway !== null) {
+        if (avgDraw !== null) {
           const probHome = 1 / avgHome;
           const probAway = 1 / avgAway;
           const probDraw = 1 / avgDraw;
@@ -198,7 +202,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost, qu
           stdDevVal = Math.sqrt(((probHome - meanProb) ** 2 + (probAway - meanProb) ** 2) / 2);
         }
 
-        if (stdDevVal < mostCompetitiveMatch.stdDev) {
+        if (stdDevVal !== null && (!mostCompetitiveMatch || stdDevVal < mostCompetitiveMatch.stdDev)) {
           mostCompetitiveMatch = { stdDev: stdDevVal, match: matchTitle };
         }
       }
@@ -226,9 +230,9 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost, qu
         .sort((a, b) => a.ts - b.ts)
         .map((d) => d.label),
       bestArbitrage,
-      biggestFavorite: isFinite(minOdd.odd) ? minOdd : null,
-      biggestUnderdog: maxOdd.odd > 0 ? maxOdd : null,
-      mostCompetitive: isFinite(mostCompetitiveMatch.stdDev) ? mostCompetitiveMatch : null,
+      biggestFavorite: minOdd,
+      biggestUnderdog: maxOdd,
+      mostCompetitive: mostCompetitiveMatch,
       marketDisagreement: marketDisagreement.stdDev > 0 ? marketDisagreement : null,
       bookmakerVigAverages,
       bestOddsProvider: Array.from(bestOddsProvider.entries()).sort(
@@ -274,6 +278,13 @@ const DebugPanel: React.FC<DebugPanelProps> = ({ data, apiLatency, quotaCost, qu
               }
             />
             <StatCard label="Last API Cost" value={quotaUsage?.requestsLast ?? 'N/A'} color="text-purple-400" />
+            <StatCard
+              label="Snapshot Stored"
+              value={
+                quotaUsage?.snapshotStored === null || !quotaUsage ? 'N/A' : quotaUsage.snapshotStored ? 'Yes' : 'No'
+              }
+              color={quotaUsage?.snapshotStored === false ? 'text-red-400' : 'text-green-400'}
+            />
             <StatCard label="Matches Fetched" value={stats.matchCount} />
             <StatCard label="Unique Bookmakers" value={stats.bookmakerCount} />
             <StatCard

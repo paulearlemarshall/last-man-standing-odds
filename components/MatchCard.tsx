@@ -18,10 +18,14 @@ const TeamDisplay: React.FC<{ teamName: string; colorClass: string }> = ({ teamN
   </div>
 );
 
-const OddsDisplay: React.FC<{ label: string; value: number; colorClass: string }> = ({ label, value, colorClass }) => (
+const OddsDisplay: React.FC<{ label: string; value: number | null; colorClass: string }> = ({
+  label,
+  value,
+  colorClass,
+}) => (
   <div className="flex flex-col items-center p-2 bg-gray-900 rounded-md w-1/3">
     <span className="text-xs text-gray-400">{label}</span>
-    <span className={`text-lg font-bold ${colorClass}`}>{isFinite(value) ? value.toFixed(2) : 'N/A'}</span>
+    <span className={`text-lg font-bold ${colorClass}`}>{value !== null ? value.toFixed(2) : 'N/A'}</span>
   </div>
 );
 
@@ -40,7 +44,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, selectedBookmaker }) => {
   let homeTeamColor = 'bg-gray-700 border-gray-600';
   let awayTeamColor = 'bg-gray-700 border-gray-600';
 
-  if (isFinite(homeWin) && isFinite(awayWin)) {
+  if (homeWin !== null && awayWin !== null) {
     if (homeWin < awayWin) {
       homeTeamColor = 'bg-green-600 border-green-500 shadow-[0_0_15px_rgba(22,163,74,0.5)]';
       awayTeamColor = 'bg-red-700 border-red-600 opacity-90';
@@ -53,7 +57,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, selectedBookmaker }) => {
   return (
     <div className="rainbow-snake-border relative bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-700 hover:border-blue-500 transform hover:scale-105 transition-all duration-300 flex flex-col justify-between">
       <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg z-10">
-        Best Odds: {isFinite(bestOdds) ? bestOdds.toFixed(2) : 'N/A'}
+        Best Odds: {bestOdds !== null ? bestOdds.toFixed(2) : 'N/A'}
       </div>
       <div className="p-4 flex-grow">
         <div className="flex justify-between items-center mb-4">

@@ -13,9 +13,11 @@ import OddsHistoryPanel from './components/OddsHistoryPanel';
 
 import { SPORTS_DIRECTORY } from './constants/sportsDirectory';
 import { useOddsData } from './hooks/useOddsData';
+import { useTheme } from './hooks/useTheme';
 import { suggestPicks } from './services/pickSuggestionService';
 import { fetchSportsDirectory, type SportsDirectory } from './services/sportsDirectoryService';
 import { decodePlayersFromUrl, encodePlayersForUrl } from './utils/shareState';
+import { copyTextToClipboard } from './utils/clipboard';
 
 const DEFAULT_SPORT_CLASS = 'Soccer';
 const DEFAULT_LEAGUE_KEY = 'soccer_epl';
@@ -110,6 +112,7 @@ const getInitialRegions = (): Region[] => {
 };
 
 const App: React.FC = () => {
+  const { preference: theme, setPreference: setTheme } = useTheme();
   const [initialSelection] = useState(() => getPreferredSelection(SPORTS_DIRECTORY));
   const [sportsDirectory, setSportsDirectory] = useState<SportsDirectory>(SPORTS_DIRECTORY);
   const [sportsDirectoryError, setSportsDirectoryError] = useState<string | null>(null);
@@ -245,8 +248,8 @@ const App: React.FC = () => {
       url.searchParams.set('league', currentLeague.key);
       url.searchParams.set('regions', selectedRegions.join(','));
 
-      await navigator.clipboard.writeText(url.toString());
-      setShareMessage('Shareable link copied to clipboard.');
+      const copied = await copyTextToClipboard(url.toString());
+      setShareMessage(copied ? 'Shareable link copied to clipboard.' : 'Could not copy link automatically.');
     } catch (_error) {
       setShareMessage('Could not copy link automatically.');
     }
@@ -282,7 +285,7 @@ const App: React.FC = () => {
 
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
-      <Header title={currentLeague.name} logoUrl={currentLeague.logo} />
+      <Header title={currentLeague.name} logoUrl={currentLeague.logo} theme={theme} onThemeChange={setTheme} />
       <div className="container mx-auto p-4 sm:p-6">
         <div className="mb-4 text-center text-sm text-green-300">
           UK time: <span className="font-semibold">{ukTimeLabel}</span>

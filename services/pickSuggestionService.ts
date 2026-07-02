@@ -42,7 +42,7 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
     const { homeWin, awayWin } = getOddsForBookmaker(match, 'average');
     const addedTeams: string[] = [];
 
-    if (isFinite(homeWin)) {
+    if (homeWin !== null) {
       potentialPicks.push({
         teamName: match.home_team,
         vsTeam: match.away_team,
@@ -52,7 +52,7 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
       addedTeams.push(`${match.home_team} ${homeWin.toFixed(2)}`);
     }
 
-    if (isFinite(awayWin)) {
+    if (awayWin !== null) {
       potentialPicks.push({
         teamName: match.away_team,
         vsTeam: match.home_team,

@@ -1,64 +1,46 @@
 # Last Man Standing Odds Assistant
 
-A React + Vite app to manage Last-Man-Standing style picks using live odds from The Odds API.
-
-For the program architecture, operating principles, API boundaries, and data-flow assumptions, see [ARCHITECTURE.md](./ARCHITECTURE.md).
-
-## What was refactored
-
-- ✅ Removed hardcoded Odds API key from frontend code.
-- ✅ Added secure server-side endpoint at `api/odds.ts` for Vercel.
-- ✅ Added secure server-side sports endpoint at `api/sports.ts` so active competitions can come from The Odds API instead of a stale hardcoded dropdown.
-- ✅ Split large app logic into focused modules:
-  - `constants/sportsDirectory.ts`
-  - `hooks/useOddsData.ts`
-  - `services/sportsDirectoryService.ts`
-  - `services/oddsTransformService.ts`
-  - `services/pickSuggestionService.ts`
-  - `utils/shareState.ts`
-- ✅ Fixed odds bugs:
-  - `bestOdds` now uses highest decimal odds (`Math.max`).
-  - Team/outcome matching now normalizes names more robustly.
-  - Debug date sorting now uses stable timestamps.
-- ✅ Replaced blocking `alert()` share UX with inline status message.
+A React 19 + Vite 8 application for managing Last-Man-Standing picks with live head-to-head odds from The Odds API. See [ARCHITECTURE.md](./ARCHITECTURE.md) for runtime boundaries and product invariants.
 
 ## Local development
 
 ```bash
 npm install
-npm run dev
+npm run db:migrate
+vercel dev
 ```
 
-> Note: The app fetches data from `/api/odds`. For local API function behavior, use `vercel dev`.
+Plain `npm run dev` serves the frontend only. Use `vercel dev` when testing `/api` routes, snapshot persistence, or analytics.
 
-## Environment variables
+## Environment
 
-Create environment vars (locally and on Vercel):
+Create `.env.local` with:
 
-- `THE_ODDS_API_KEY` (required)
-- `GEMINI_API_KEY` (optional, only if Gemini features are used)
+- `THE_ODDS_API_KEY` — required for live sports and odds.
+- `DATABASE_URL` — required for snapshot history and analytics.
+- `CRON_SECRET` — required by the protected cleanup endpoint; Vercel supplies it to configured cron requests.
 
-Use `.env.example` as reference.
+`ODDS_API_KEY` and `POSTGRES_URL` are supported fallbacks.
 
-## Deploy to a new Vercel project
+## Quality gates
 
-1. Push this repo/branch to GitHub.
-2. In Vercel: **Add New Project** → import repo.
-3. Framework preset: **Vite**.
-4. Add env var:
-   - `THE_ODDS_API_KEY=<your_key>`
-5. Deploy.
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run format:check
+npm run build
+```
 
-Vercel will serve:
+GitHub Actions runs the same checks on pushes to `main` and on pull requests.
 
-- frontend app from Vite build output
-- serverless endpoint from `api/odds.ts`
+## Deployment
 
-## Security notes
+Import the repository into Vercel with the Vite framework preset and configure the environment variables above. `vercel.json` defines the daily 30-day snapshot cleanup schedule. Run `npm run db:migrate` against the target database before the first production release.
 
-- Do **not** expose API keys in client files.
-- Keep all third-party API secrets in Vercel project environment variables.
+## Security
 
-## Maintenance
-
-- 2026-04-20: Added a lightweight PR workflow smoke-test update to verify automated commit + PR tooling.
+- API and database secrets remain server-side and must never use a `VITE_` prefix.
+- Only `h2h` markets and explicitly selected regions are accepted.
+- Persisted upstream URLs redact the Odds API key.
+- `/api/cleanup` requires `Authorization: Bearer <CRON_SECRET>`.

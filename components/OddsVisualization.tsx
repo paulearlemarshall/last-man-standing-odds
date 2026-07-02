@@ -49,8 +49,8 @@ const OddsVisualization: React.FC<OddsVisualizationProps> = ({ matches, selected
     .map((match) => {
       const { homeWin: homePrice, awayWin: awayPrice } = getOddsForBookmaker(match, selectedBookmaker);
 
-      const homeProb = isFinite(homePrice) && homePrice > 0 ? 1 / homePrice : 0;
-      const awayProb = isFinite(awayPrice) && awayPrice > 0 ? 1 / awayPrice : 0;
+      const homeProb = homePrice !== null && homePrice > 0 ? 1 / homePrice : 0;
+      const awayProb = awayPrice !== null && awayPrice > 0 ? 1 / awayPrice : 0;
 
       const homeTeam = { teamName: match.home_team, winProbability: homeProb };
       const awayTeam = { teamName: match.away_team, winProbability: awayProb };

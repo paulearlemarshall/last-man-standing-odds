@@ -76,20 +76,20 @@ const MatchWeekendView: React.FC<MatchWeekendViewProps> = ({ weekend, bookmakers
           bValue = new Date(b.commence_time).getTime();
           break;
         case 'homeWin':
-          aValue = aOdds.homeWin;
-          bValue = bOdds.homeWin;
+          aValue = aOdds.homeWin ?? Number.POSITIVE_INFINITY;
+          bValue = bOdds.homeWin ?? Number.POSITIVE_INFINITY;
           break;
         case 'draw':
-          aValue = aOdds.draw;
-          bValue = bOdds.draw;
+          aValue = aOdds.draw ?? Number.POSITIVE_INFINITY;
+          bValue = bOdds.draw ?? Number.POSITIVE_INFINITY;
           break;
         case 'awayWin':
-          aValue = aOdds.awayWin;
-          bValue = bOdds.awayWin;
+          aValue = aOdds.awayWin ?? Number.POSITIVE_INFINITY;
+          bValue = bOdds.awayWin ?? Number.POSITIVE_INFINITY;
           break;
         case 'bestOdds':
-          aValue = aOdds.bestOdds;
-          bValue = bOdds.bestOdds;
+          aValue = aOdds.bestOdds ?? Number.POSITIVE_INFINITY;
+          bValue = bOdds.bestOdds ?? Number.POSITIVE_INFINITY;
           break;
         default:
           return 0;

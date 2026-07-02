@@ -1,4 +1,6 @@
-import type { ServerResponse } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
+
+export type ApiRequest = IncomingMessage & { query?: Record<string, string | string[]> };
 
 export function normalizeQueryValue(value: string | string[] | undefined): string {
   if (!value) return '';

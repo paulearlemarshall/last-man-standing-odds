@@ -1,5 +1,50 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+html:not(.dark) body,
+html:not(.dark) .bg-gray-900 {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+html:not(.dark) .bg-gray-800,
+html:not(.dark) .bg-gray-800\/50,
+html:not(.dark) .bg-gray-800\/70 {
+  background-color: rgb(255 255 255 / 0.85);
+}
+
+html:not(.dark) .bg-gray-700,
+html:not(.dark) .bg-gray-700\/50,
+html:not(.dark) .bg-slate-700 {
+  background-color: #e5e7eb;
+}
+
+html:not(.dark) .bg-gray-900\/50,
+html:not(.dark) .bg-gray-900\/60,
+html:not(.dark) .bg-gray-900\/70,
+html:not(.dark) .bg-black\/20,
+html:not(.dark) .bg-black\/30,
+html:not(.dark) .bg-black\/40 {
+  background-color: rgb(255 255 255 / 0.75);
+}
+
+html:not(.dark) :is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300, .text-slate-200, .text-slate-300) {
+  color: #1f2937;
+}
+
+html:not(.dark) :is(.text-gray-400, .text-gray-500) {
+  color: #4b5563;
+}
+
+html:not(.dark) :is(.border-gray-500, .border-gray-600, .border-gray-700, .border-gray-800) {
+  border-color: #d1d5db;
+}
+
+html:not(.dark) :is(.bg-blue-500, .bg-blue-600, .bg-green-600, .bg-green-700, .bg-red-600, .bg-slate-600).text-white {
+  color: white;
+}
+
 @property --snake-angle {
   syntax: '<angle>';
   inherits: false;

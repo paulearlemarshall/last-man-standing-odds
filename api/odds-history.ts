@@ -1,11 +1,8 @@
-import type { IncomingMessage, ServerResponse } from 'http';
-import { normalizeQueryValue, sendJson, timed } from './_lib/http.js';
+import type { ServerResponse } from 'http';
+import { type ApiRequest, normalizeQueryValue, sendJson, timed } from './_lib/http.js';
 import { getOddsSnapshotById, getOddsSnapshotInsights, listOddsSnapshots } from './_lib/oddsSnapshotsStore.js';
 
-export default async function handler(
-  req: IncomingMessage & { query?: Record<string, string | string[]> },
-  res: ServerResponse
-) {
+export default async function handler(req: ApiRequest, res: ServerResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return sendJson(res, 405, { error: 'Method not allowed' });

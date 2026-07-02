@@ -1,10 +1,10 @@
 import type { MatchOdds } from '../types';
 
 interface OddsResult {
-  homeWin: number;
-  draw: number;
-  awayWin: number;
-  bestOdds: number;
+  homeWin: number | null;
+  draw: number | null;
+  awayWin: number | null;
+  bestOdds: number | null;
 }
 
 export const getOddsForBookmaker = (match: MatchOdds, bookmakerKey: string): OddsResult => {
@@ -21,13 +21,13 @@ export const getOddsForBookmaker = (match: MatchOdds, bookmakerKey: string): Odd
   const awayOutcome = h2hMarket?.outcomes.find((o) => o.name === match.away_team);
   const drawOutcome = h2hMarket?.outcomes.find((o) => o.name === 'Draw');
 
-  const homeWin = homeOutcome?.price ?? Infinity;
-  const awayWin = awayOutcome?.price ?? Infinity;
-  const draw = drawOutcome?.price ?? Infinity;
+  const homeWin = homeOutcome?.price ?? null;
+  const awayWin = awayOutcome?.price ?? null;
+  const draw = drawOutcome?.price ?? null;
 
-  const validOdds = [homeWin, draw, awayWin].filter((o) => isFinite(o));
+  const validOdds = [homeWin, draw, awayWin].filter((odd): odd is number => odd !== null);
   // Decimal odds: higher value means better payout.
-  const bestOdds = validOdds.length > 0 ? Math.max(...validOdds) : Infinity;
+  const bestOdds = validOdds.length > 0 ? Math.max(...validOdds) : null;
 
   return { homeWin, draw, awayWin, bestOdds };
 };

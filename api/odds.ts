@@ -1,5 +1,5 @@
-import type { IncomingMessage, ServerResponse } from 'http';
-import { normalizeQueryValue, sendJson, timed } from './_lib/http.js';
+import type { ServerResponse } from 'http';
+import { type ApiRequest, normalizeQueryValue, sendJson, timed } from './_lib/http.js';
 import { storeOddsSnapshot } from './_lib/oddsSnapshotsStore.js';
 
 type Region = 'uk' | 'us' | 'eu' | 'au';
@@ -8,10 +8,7 @@ const ALLOWED_REGIONS = new Set<Region>(['uk', 'us', 'eu', 'au']);
 const DEFAULT_REGION: Region = 'uk';
 const SPORT_KEY_REGEX = /^[a-z0-9_]+$/i;
 
-export default async function handler(
-  req: IncomingMessage & { query?: Record<string, string | string[]> },
-  res: ServerResponse
-) {
+export default async function handler(req: ApiRequest, res: ServerResponse) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return sendJson(res, 405, { error: 'Method not allowed' });
@@ -77,6 +74,7 @@ export default async function handler(
       });
     }
 
+    let snapshotStored = true;
     try {
       await timed('odds.storeSnapshot', () =>
         storeOddsSnapshot({
@@ -88,8 +86,10 @@ export default async function handler(
         })
       );
     } catch (persistError) {
+      snapshotStored = false;
       console.error('Failed to store odds snapshot:', persistError);
     }
+    res.setHeader('x-snapshot-stored', String(snapshotStored));
 
     const quotaHeaderNames = ['x-requests-remaining', 'x-requests-used', 'x-requests-last'];
     quotaHeaderNames.forEach((headerName) => {
