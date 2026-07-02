@@ -9,14 +9,14 @@
 
 The codebase is in good structural shape: clean separation of `api/` (Vercel functions), `services/`, `hooks/`, `utils/`, `components/`; secrets are server-side; quota usage is surfaced; there is real debug instrumentation (latency, quota headers, decision-trace logging). `tsc --noEmit` passes with zero errors.
 
-The four biggest gaps, in recommended priority order:
+The four biggest gaps, in priority order:
 
-1. **Unbounded database growth** — every `/api/odds` request persists the full JSONB payload *plus* a normalized row per bookmaker-outcome quote, with no retention. See §5 and Phase 4.
-2. **No lint, no formatter, no tests, no CI** — correctness-sensitive share-state, pick-selection, transformation, and analytics code has no automated regression protection. See Phase 5.
-3. **Real edge-case correctness defects** — share links can decode picks to the wrong teams, empty sports groups can crash selection, duplicate player ids are accepted, and some requests can race. See §8 and Phase 3.
-4. **Modernization opportunities** — the app is hardcoded dark, uses Tailwind's development CDN, retains the classic JSX runtime, and has several major-version upgrades available. Theme support is a proposed product enhancement unless another product specification makes it required. See §3, §7, and Phases 1–2.
+1. **No light/dark/system theme support at all** — the app is hardcoded dark (`bg-gray-900` in `index.html` and `App.tsx`). This is a required feature and is entirely missing. See §6 and Phase 2.
+2. **Tech stack is one-to-two major versions behind** — React 18.2 (current: 19.x), Vite 5 (current: 7.x), Tailwind via the Play CDN (not production-supported; current: Tailwind 4 via Vite plugin), classic JSX runtime with per-file `/** @jsx */` pragmas (obsolete since React 17). See §3 and Phase 1.
+3. **Unbounded database growth** — every `/api/odds` request persists the full JSONB payload *plus* a normalized row per bookmaker-outcome quote, with no dedup and no retention. See §5 and Phase 4.
+4. **No lint, no formatter, no tests, no CI.** See Phase 5.
 
-Nothing found is an active correctness bug in the happy path, but §8 lists real edge-case defects to fix during the refactor.
+Nothing found is an active correctness bug in the happy path, but §7 lists real edge-case defects to fix during the refactor.
 
 ---
 
@@ -34,12 +34,12 @@ Nothing found is an active correctness bug in the happy path, but §8 lists real
 
 ## 3. Finding: tech stack currency
 
-| Dependency | Current | Candidate target (verify before implementation) | Action |
+| Dependency | Current | Latest supported (mid-2026) | Action |
 |---|---|---|---|
 | react / react-dom | ^18.2.0 | 19.x | Upgrade (Phase 1) |
 | vite | ^5.0.0 | 7.x | Upgrade — requires Node 20.19+/22.12+ |
 | typescript | ^5.0.0 | 5.9.x | Upgrade; pin minor |
-| @types/node | ^20 | ^24 | Align with the Node runtime selected for local development and Vercel |
+| @types/node | ^20 | ^24 (Node 24 LTS is Vercel's default runtime) | Upgrade |
 | Tailwind | **Play CDN `<script>`** in `index.html` | Tailwind 4 via `@tailwindcss/vite` | Replace — the CDN build is explicitly not for production: it re-scans the DOM at runtime, blocks first paint, and can't tree-shake |
 | JSX transform | classic (`jsx: "react"` + `/** @jsx React.createElement */` pragmas in every `.tsx`) | automatic (`react-jsx`) | Switch — pragmas and `import React` boilerplate become unnecessary; smaller output |
 | @neondatabase/serverless | ^1.1.0 | current | OK |
@@ -88,17 +88,17 @@ The tsconfig comment `// CRITICAL: Set to 'react' (classic) not 'react-jsx'` (ts
 
 **Issues:**
 
-1. **N HTTP requests where 1 suffices.** `oddsApiService.ts` issues one `/api/odds` call *per region*, yet `api/odds.ts:38-43` already accepts comma-separated regions and The Odds API supports it natively. Batch all cache-missed regions into one request, then split the response per region for caching (each match's `bookmakers` can be attributed by fetching regions individually only when splitting matters — simpler: cache the merged result under a combined key `odds_cache_${sportKey}_${sortedRegions.join('-')}`). This reduces browser/server round-trips and snapshot writes, but does **not** necessarily reduce The Odds API quota cost because quota accounting may still scale with requested regions and markets.
+1. **N HTTP requests where 1 suffices.** `oddsApiService.ts` issues one `/api/odds` call *per region*, yet `api/odds.ts:38-43` already accepts comma-separated regions and The Odds API supports it natively. Batch all cache-missed regions into one request, then split the response per region for caching (each match's `bookmakers` can be attributed by fetching regions individually only when splitting matters — simpler: cache the merged result under a combined key `odds_cache_${sportKey}_${sortedRegions.join('-')}`). One round-trip, one snapshot row instead of N, and the quota-header race below disappears.
 
 2. **Quota-header race.** In the per-region `Promise.all` (`oddsApiService.ts:85-127`), `quotaUsage = responseQuotaUsage` is last-write-wins across concurrent responses — `requestsRemaining` shown to the user is whichever response happened to land last, not the minimum. Fixed for free by item 1; otherwise take the response with the lowest `requestsRemaining`.
 
-3. **Unbounded, duplicated persistence.** Every upstream fetch stores (a) the full raw JSONB payload in `odds_api_snapshots` **and** (b) one row per quote in `odds_market_points` (a 20-match, 20-bookmaker, 3-outcome response ≈ 1,200 rows per snapshot). There is no retention policy. Required:
-   - **Retention first:** add a Vercel Cron (`crons` in `vercel.ts`) hitting an `api/cleanup.ts` that deletes snapshots older than N days (cascade handles `odds_market_points`).
-   - **Define observation semantics before deduplication:** identical snapshots may still represent meaningful observations at different times. If storage deduplication is wanted, preserve each observation timestamp and reference a content-addressed payload/market-point set, or prove that skipping exact repeats does not distort time-series analytics. A `payload_hash` can identify duplicates, but should not by itself cause observations to disappear.
+3. **Unbounded, duplicated persistence.** Every upstream fetch stores (a) the full raw JSONB payload in `odds_api_snapshots` **and** (b) one row per quote in `odds_market_points` (a 20-match, 20-bookmaker, 3-outcome response ≈ 1,200 rows per snapshot). No retention, no dedup. Required:
+   - **Dedup:** before insert, compare a hash of the payload (e.g. `md5` of canonical JSON) against the most recent snapshot for the same `{sport_key, regions_csv, markets}`; skip insert on match. Add a `payload_hash` column.
+   - **Retention:** a Vercel Cron (`crons` in `vercel.ts`) hitting an `api/cleanup.ts` that deletes snapshots older than N days (cascade handles `odds_market_points`).
 
 4. **`getContextSnapshots` runs three identical correlated subselects** (`oddsSnapshotsStore.ts:527-535`) — same for `getOddsSnapshotInsights` (lines 966-980). Rewrite with a single CTE: `WITH anchor AS (SELECT sport_key, regions_csv, markets FROM odds_api_snapshots WHERE id = $1) SELECT ... JOIN anchor USING (...)`.
 
-5. **Sequential backfill.** `ensureContextSnapshotsNormalized` (lines 564-573) inserts missing snapshots one `await` at a time inside a `for` loop, on the request path of every analytics call. Use an awaited, concurrency-limited batch. Do not start unawaited work after returning a serverless response; the runtime may stop before it finishes. For larger backfills, move the work into a durable scheduled job and return explicitly partial data until it completes.
+5. **Sequential backfill.** `ensureContextSnapshotsNormalized` (lines 564-573) inserts missing snapshots one `await` at a time inside a `for` loop, on the request path of every analytics call. At minimum `Promise.all` the batch; better, backfill asynchronously and return partial data.
 
 6. **Analytics aggregates in TypeScript over full row sets.** `getTeamFormAnalytics` pulls every matching `odds_market_points` row into memory, then buckets/averages in JS. Fine at current volume; if lookback windows grow, push per-snapshot-per-match averaging into SQL (`GROUP BY snapshot_id, match_id`) — the row transfer is the cost, not the math.
 
@@ -124,15 +124,15 @@ The tsconfig comment `// CRITICAL: Set to 'react' (classic) not 'react-jsx'` (ts
      finally { console.log(`[timing] ${label}: ${(performance.now() - start).toFixed(0)}ms`); }
    };
    ```
-   Wrap the upstream fetch, `storeOddsSnapshot`, and each analytics query. These logs appear in `vercel logs` and provide a primary production diagnostic signal; they can later be complemented with tracing or an observability service.
+   Wrap the upstream fetch, `storeOddsSnapshot`, and each analytics query. These logs appear in `vercel logs` and are the only way to diagnose slow requests in production.
 2. **Ungated `console.log` on the client** (`oddsApiService.ts:95`). Gate behind `import.meta.env.DEV` or a `debug=1` query param so production consoles stay clean while the DebugPanel remains the sanctioned surface.
 3. **Silent failure paths:** the `localStorage.setItem` catch (`oddsApiService.ts:125`) and snapshot-persist catch (`api/odds.ts:93-95`) swallow errors invisibly on the client side. The persist failure at least logs server-side; surface a non-fatal warning flag in the odds response header (e.g. `x-snapshot-stored: false`) so the DebugPanel can show it.
 
 ---
 
-## 7. Finding: light/dark/system mode — **PROPOSED ENHANCEMENT**
+## 7. Finding: light/dark/system mode — **MISSING**
 
-There is no theming at all. Dark colors are hardcoded in ~30 places: `index.html:63` (`<body class="bg-gray-900 text-white">`), `App.tsx:278`, and literal `bg-gray-*/text-white/border-gray-*` classes throughout every component. No `prefers-color-scheme` handling, no toggle, no persistence. `ARCHITECTURE.md` does not currently require theme support, so confirm this product choice before scheduling the implementation plan in **Phase 2**.
+There is no theming at all. Dark colors are hardcoded in ~30 places: `index.html:63` (`<body class="bg-gray-900 text-white">`), `App.tsx:278`, and literal `bg-gray-*/text-white/border-gray-*` classes throughout every component. No `prefers-color-scheme` handling, no toggle, no persistence. Full implementation plan in **Phase 2** below.
 
 ---
 
@@ -158,33 +158,22 @@ npm run build              # must exit 0
 npm run dev                # manual smoke: odds load, regions toggle, Suggest works, Share copies, history panel loads
 # after Phase 5: npm run lint && npm test
 ```
-Local odds loading requires `.env.local` with `THE_ODDS_API_KEY`. Persistence, history, and analytics additionally require `DATABASE_URL` (Neon). API functions need `vercel dev` (or `VITE_API_PROXY_TARGET` pointing at a deployed instance — see `vite.config.ts`). Deploys: Vercel, framework preset Vite, env vars `THE_ODDS_API_KEY` + `DATABASE_URL` for the complete feature set.
+Local dev requires `.env.local` with `THE_ODDS_API_KEY` and `DATABASE_URL` (Neon); API functions need `vercel dev` (or `VITE_API_PROXY_TARGET` pointing at a deployed instance — see `vite.config.ts`). Deploys: Vercel, framework preset Vite, env vars `THE_ODDS_API_KEY` + `DATABASE_URL`.
 
 ---
 
-## Phase 1 — Stack and CSS modernization
-
-Treat Phase 1A and Phase 1B as separate migrations with separate verification gates and commits. Before changing versions, verify current stable releases and runtime requirements against the official package and Vercel documentation.
-
-### Phase 1A — React, Vite, TypeScript, and automatic JSX
+## Phase 1 — Stack upgrade (React 19, Vite 7, Tailwind 4, automatic JSX)
 
 1. `npm i react@^19 react-dom@^19 && npm i -D vite@^7 typescript@^5.9 @types/react@^19 @types/react-dom@^19 @types/node@^24 @vercel/node`
 2. **tsconfig.json:** set `"jsx": "react-jsx"`; delete `jsxFactory`, `jsxFragmentFactory`, and the "CRITICAL" comment; delete `experimentalDecorators` and `useDefineForClassFields` (unused).
 3. **vite.config.ts:** delete the entire `esbuild: { jsx: ... }` block; add `@vitejs/plugin-react` (`npm i -D @vitejs/plugin-react`) to `plugins`.
 4. **Every `.tsx` file:** remove the `/** @jsx React.createElement */` and `/** @jsxFrag React.Fragment */` pragma lines; remove `import React from 'react'` where React is only used for JSX (keep named imports like `useState`).
 5. **React 19 sweep:** `React.FC<Props>` still works but drop it in touched files in favor of plain typed function components. No `forwardRef`/`propTypes`/legacy-context usage exists, so no other migration work is expected.
-6. Optional but recommended: `npm i -D @vercel/config` and add `vercel.ts` declaring `framework: 'vite'` and (Phase 4) the cleanup cron.
-7. Type API handlers with `VercelRequest`/`VercelResponse` from `@vercel/node` instead of the `IncomingMessage & { query?: ... }` intersection.
+6. **Tailwind 4:** `npm i -D tailwindcss @tailwindcss/vite`; add the plugin to `vite.config.ts`; create `styles/index.css` with `@import "tailwindcss";` plus the `rainbow-snake` keyframes/classes moved out of `index.html`; import it from `index.tsx`; delete the `<script src="https://cdn.tailwindcss.com">` and inline `<style>` from `index.html`.
+7. Optional but recommended: `npm i -D @vercel/config` and add `vercel.ts` declaring `framework: 'vite'` and (Phase 4) the cleanup cron.
+8. Type API handlers with `VercelRequest`/`VercelResponse` from `@vercel/node` instead of the `IncomingMessage & { query?: ... }` intersection.
 
-Gate, then commit: `chore: upgrade React and Vite toolchain`.
-
-### Phase 1B — Tailwind 4
-
-1. `npm i -D tailwindcss @tailwindcss/vite`; add the plugin to `vite.config.ts`.
-2. Create `styles/index.css` with `@import "tailwindcss";` plus the `rainbow-snake` keyframes/classes moved out of `index.html`; import it from `index.tsx`.
-3. Delete the `<script src="https://cdn.tailwindcss.com">` and inline `<style>` from `index.html`.
-
-Gate, visually compare all major screens and responsive states, then commit: `chore: migrate Tailwind to the Vite plugin`.
+Gate, then commit: `chore: upgrade to React 19 / Vite 7 / Tailwind 4, automatic JSX runtime`.
 
 ## Phase 2 — Light / dark / system theme
 
@@ -222,9 +211,9 @@ Apply §4 items 1–9 and §8 items 1–6. Suggested order (each its own commit)
 ## Phase 4 — Data & API efficiency
 
 1. Single batched odds request for all cache-missed regions (§5.1) — this also resolves the quota race (§5.2). Preserve the per-region cache behavior or switch to a combined-key cache; either way keep the 5-minute TTL and add the startup sweep for stale `odds_cache_*` keys (§5.8).
-2. Add `api/cleanup.ts` + cron in `vercel.ts` (e.g. daily, delete snapshots `created_at < now() - interval '30 days'`). When `CRON_SECRET` is configured, verify Vercel's `Authorization: Bearer ${CRON_SECRET}` header before running cleanup.
-3. Decide and document snapshot observation semantics. If deduplicating storage, use `payload_hash` to share content while preserving observation timestamps; do not silently drop observations used by analytics (§5.3).
-4. CTE rewrite of the triple-subselect queries (§5.4); use an awaited, concurrency-limited backfill (§5.5); add `(outcome_name, snapshot_id)` index if analytics feel slow (§5.7).
+2. Snapshot dedup via `payload_hash` (§5.3): add column with `ALTER TABLE ... ADD COLUMN IF NOT EXISTS payload_hash text`, index it, compare against latest per `{sport_key, regions_csv, markets}` before insert.
+3. `api/cleanup.ts` + cron in `vercel.ts` (e.g. daily, delete snapshots `created_at < now() - interval '30 days'`). Protect with a `CRON_SECRET` header check.
+4. CTE rewrite of the triple-subselect queries (§5.4); parallelize backfill (§5.5); add `(outcome_name, snapshot_id)` index if analytics feel slow (§5.7).
 5. Emit `x-snapshot-stored` header from `api/odds.ts` and show it in DebugPanel (§6.3).
 
 ## Phase 5 — Tooling, tests, CI
