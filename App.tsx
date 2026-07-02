@@ -55,10 +55,12 @@ const getInitialSportClass = (sportsDirectory: SportsDirectory): string => {
 const getInitialLeague = (sportsDirectory: SportsDirectory, sportClass: string, useUrlLeague: boolean = true) => {
   const params = new URLSearchParams(window.location.search);
   const requestedLeagueKey = useUrlLeague ? params.get('league') : null;
-  const leaguesForSport =
-    sportsDirectory[sportClass] ||
-    sportsDirectory[DEFAULT_SPORT_CLASS] ||
-    getSportClasses(sportsDirectory).flatMap((key) => sportsDirectory[key]);
+  const leaguesForSport = [
+    ...(sportsDirectory[sportClass] || []),
+    ...(sportsDirectory[DEFAULT_SPORT_CLASS] || []),
+    ...getSportClasses(sportsDirectory).flatMap((key) => sportsDirectory[key]),
+    ...Object.values(SPORTS_DIRECTORY).flat(),
+  ];
 
   if (requestedLeagueKey) {
     const requestedLeague = leaguesForSport.find((league) => league.key === requestedLeagueKey);
@@ -110,7 +112,7 @@ const getInitialRegions = (): Region[] => {
 };
 
 const App: React.FC = () => {
-  const initialSelection = getPreferredSelection(SPORTS_DIRECTORY);
+  const [initialSelection] = useState(() => getPreferredSelection(SPORTS_DIRECTORY));
   const [sportsDirectory, setSportsDirectory] = useState<SportsDirectory>(SPORTS_DIRECTORY);
   const [sportsDirectoryError, setSportsDirectoryError] = useState<string | null>(null);
   const [currentSportClass, setCurrentSportClass] = useState<string>(initialSelection.sportClass);
@@ -195,8 +197,6 @@ const App: React.FC = () => {
     [currentTime]
   );
 
-  const teamNameToIndex = useMemo(() => new Map(allTeams.map((team, index) => [team, index])), [allTeams]);
-
   useEffect(() => {
     if (hasHydratedPlayers || allTeams.length === 0) {
       return;
@@ -218,8 +218,13 @@ const App: React.FC = () => {
 
   const handleSportChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newSportClass = e.target.value;
+    const nextLeague = sportsDirectory[newSportClass]?.[0];
+    if (!nextLeague) {
+      setSportsDirectoryError(`No active leagues are available for ${newSportClass}.`);
+      return;
+    }
     setCurrentSportClass(newSportClass);
-    setCurrentLeague(sportsDirectory[newSportClass][0]);
+    setCurrentLeague(nextLeague);
   };
 
   const handleReset = () => {
@@ -234,7 +239,7 @@ const App: React.FC = () => {
 
   const handleShare = async () => {
     try {
-      const encodedPlayers = encodePlayersForUrl(players, teamNameToIndex);
+      const encodedPlayers = encodePlayersForUrl(players);
       const url = new URL(window.location.href);
 
       url.searchParams.set('players', encodedPlayers);

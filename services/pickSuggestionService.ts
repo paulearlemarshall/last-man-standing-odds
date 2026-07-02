@@ -6,6 +6,8 @@ interface SuggestionResult {
   logs: DecisionLogEntry[];
 }
 
+const MAX_SEARCH_STEPS = 100_000;
+
 export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): SuggestionResult {
   if (!matchWeekends.length) {
     return {
@@ -80,8 +82,10 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
 
   let bestAssignment: (PotentialPick | null)[] | null = null;
   let poolSize = players.length;
+  let searchSteps = 0;
+  let searchBudgetExceeded = false;
 
-  while (!bestAssignment && poolSize <= potentialPicks.length) {
+  while (!bestAssignment && !searchBudgetExceeded && poolSize <= potentialPicks.length) {
     const pickPool = potentialPicks.slice(0, poolSize);
     const assignment = new Array(players.length).fill(null);
     const usedPicks = new Array(pickPool.length).fill(false);
@@ -98,6 +102,11 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
     );
 
     function findAssignment(playerIndex: number): boolean {
+      searchSteps++;
+      if (searchSteps > MAX_SEARCH_STEPS) {
+        searchBudgetExceeded = true;
+        return false;
+      }
       if (playerIndex === players.length) return true;
 
       const player = players[playerIndex];
@@ -126,6 +135,8 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
           return true;
         }
 
+        if (searchBudgetExceeded) return false;
+
         usedPicks[i] = false;
         assignment[playerIndex] = null;
       }
@@ -146,7 +157,7 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
           )
           .join('\n')
       );
-    } else {
+    } else if (!searchBudgetExceeded) {
       addLog(
         `No valid assignment with top ${poolSize} candidates.`,
         'warning',
@@ -158,9 +169,11 @@ export function suggestPicks(players: Player[], matchWeekends: MatchWeekend[]): 
 
   if (!bestAssignment) {
     addLog(
-      'Could not assign picks for all players with current constraints.',
+      searchBudgetExceeded
+        ? 'Stopped pick assignment after reaching the search safety limit.'
+        : 'Could not assign picks for all players with current constraints.',
       'error',
-      `${players.length} players, ${potentialPicks.length} candidate picks. Try adding more fixtures/regions or clearing restrictive previous picks.`
+      `${players.length} players, ${potentialPicks.length} candidate picks, ${searchSteps} search steps. Try adding more fixtures/regions or clearing restrictive previous picks.`
     );
     return {
       updatedPlayers: players.map((player) => ({ ...player, suggestion: null })),

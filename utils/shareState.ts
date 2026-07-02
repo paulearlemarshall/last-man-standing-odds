@@ -1,43 +1,73 @@
 import type { Player } from '../types';
 
-export function decodePlayersFromUrl(encodedState: string, allTeams: string[]): Player[] {
-  const indexToTeamName = new Map(allTeams.map((team, index) => [index, team]));
+const V2_PREFIX = 'v2:';
 
-  return encodedState
-    .split('|')
-    .map((part) => {
-      const [idStr, encodedName, picksStr] = part.split(';');
-      const id = Number.parseInt(idStr, 10);
-
-      if (!Number.isFinite(id)) return null;
-
-      const previousPicks = (picksStr || '')
-        .split(',')
-        .filter(Boolean)
-        .map((indexString) => Number.parseInt(indexString, 10))
-        .map((index) => indexToTeamName.get(index))
-        .filter((team): team is string => Boolean(team));
-
-      return {
-        id,
-        name: decodeURIComponent(encodedName || `Player ${id}`),
-        previousPicks,
-        suggestion: null,
-      };
-    })
-    .filter((player): player is Player => Boolean(player));
+function uniquePlayers(players: Array<Player | null>): Player[] {
+  const seenIds = new Set<number>();
+  return players.filter((player): player is Player => {
+    if (!player || seenIds.has(player.id)) return false;
+    seenIds.add(player.id);
+    return true;
+  });
 }
 
-export function encodePlayersForUrl(players: Player[], teamNameToIndex: Map<string, number>): string {
-  return players
+function decodePlayer(part: string, decodePicks: (value: string) => string[]): Player | null {
+  const [idStr, encodedName, picksStr] = part.split(';');
+  const id = Number.parseInt(idStr, 10);
+  if (!Number.isFinite(id)) return null;
+
+  try {
+    return {
+      id,
+      name: decodeURIComponent(encodedName || `Player ${id}`),
+      previousPicks: decodePicks(picksStr || ''),
+      suggestion: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function decodePlayersFromUrl(encodedState: string, allTeams: string[]): Player[] {
+  if (encodedState.startsWith(V2_PREFIX)) {
+    return uniquePlayers(
+      encodedState
+        .slice(V2_PREFIX.length)
+        .split('|')
+        .map((part) =>
+          decodePlayer(part, (picks) =>
+            picks
+              .split(',')
+              .filter(Boolean)
+              .map((pick) => decodeURIComponent(pick))
+          )
+        )
+    );
+  }
+
+  const indexToTeamName = new Map(allTeams.map((team, index) => [index, team]));
+
+  return uniquePlayers(
+    encodedState.split('|').map((part) =>
+      decodePlayer(part, (picks) =>
+        picks
+          .split(',')
+          .filter(Boolean)
+          .map((indexString) => Number.parseInt(indexString, 10))
+          .map((index) => indexToTeamName.get(index))
+          .filter((team): team is string => Boolean(team))
+      )
+    )
+  );
+}
+
+export function encodePlayersForUrl(players: Player[]): string {
+  return `${V2_PREFIX}${players
     .map((player) => {
       const encodedName = encodeURIComponent(player.name);
-      const picks = player.previousPicks
-        .map((team) => teamNameToIndex.get(team))
-        .filter((index): index is number => index !== undefined)
-        .join(',');
+      const picks = player.previousPicks.map((team) => encodeURIComponent(team)).join(',');
 
       return `${player.id};${encodedName};${picks}`;
     })
-    .join('|');
+    .join('|')}`;
 }

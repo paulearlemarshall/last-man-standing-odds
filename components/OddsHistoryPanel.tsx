@@ -1,6 +1,6 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   HeadToHeadAnalytics,
   HeadToHeadTimelinePoint,
@@ -83,12 +83,16 @@ const OddsHistoryPanel: React.FC = () => {
   const [headToHead, setHeadToHead] = useState<HeadToHeadAnalytics | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const listAbortControllerRef = useRef<AbortController | null>(null);
 
   const loadSnapshots = async () => {
+    listAbortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    listAbortControllerRef.current = abortController;
     setLoadingList(true);
     setError(null);
     try {
-      const response = await fetch('/api/odds-history?limit=40');
+      const response = await fetch('/api/odds-history?limit=40', { signal: abortController.signal });
       if (!response.ok) {
         const details = await response.text();
         throw new Error(`Failed to load snapshot list (${response.status}): ${details}`);
@@ -111,14 +115,16 @@ const OddsHistoryPanel: React.FC = () => {
         return nextSnapshots[0].id;
       });
     } catch (loadError) {
+      if (abortController.signal.aborted) return;
       setError(loadError instanceof Error ? loadError.message : 'Failed to load snapshot list');
     } finally {
-      setLoadingList(false);
+      if (!abortController.signal.aborted) setLoadingList(false);
     }
   };
 
   useEffect(() => {
     void loadSnapshots();
+    return () => listAbortControllerRef.current?.abort();
   }, []);
 
   useEffect(() => {
