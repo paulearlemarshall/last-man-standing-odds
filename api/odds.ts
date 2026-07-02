@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { normalizeQueryValue, sendJson, timed } from './_lib/http.js';
 import { storeOddsSnapshot } from './_lib/oddsSnapshotsStore.js';
 
 type Region = 'uk' | 'us' | 'eu' | 'au';
@@ -6,17 +7,6 @@ type Region = 'uk' | 'us' | 'eu' | 'au';
 const ALLOWED_REGIONS = new Set<Region>(['uk', 'us', 'eu', 'au']);
 const DEFAULT_REGION: Region = 'uk';
 const SPORT_KEY_REGEX = /^[a-z0-9_]+$/i;
-
-function normalizeQueryValue(value: string | string[] | undefined): string {
-  if (!value) return '';
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
-  res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(payload));
-}
 
 export default async function handler(
   req: IncomingMessage & { query?: Record<string, string | string[]> },
@@ -68,12 +58,14 @@ export default async function handler(
   })();
 
   try {
-    const response = await fetch(upstreamUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
+    const response = await timed('odds.upstream', () =>
+      fetch(upstreamUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+    );
 
     const responseText = await response.text();
 
@@ -86,13 +78,15 @@ export default async function handler(
     }
 
     try {
-      await storeOddsSnapshot({
-        sportKey: sportKeyRaw,
-        regions: regions.join(','),
-        markets,
-        sourceUrl: persistedSourceUrl,
-        responseText,
-      });
+      await timed('odds.storeSnapshot', () =>
+        storeOddsSnapshot({
+          sportKey: sportKeyRaw,
+          regions: regions.join(','),
+          markets,
+          sourceUrl: persistedSourceUrl,
+          responseText,
+        })
+      );
     } catch (persistError) {
       console.error('Failed to store odds snapshot:', persistError);
     }

@@ -1,16 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { normalizeQueryValue, sendJson, timed } from './_lib/http.js';
 import { getOddsSnapshotById, getOddsSnapshotInsights, listOddsSnapshots } from './_lib/oddsSnapshotsStore.js';
-
-function normalizeQueryValue(value: string | string[] | undefined): string {
-  if (!value) return '';
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
-  res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(payload));
-}
 
 export default async function handler(
   req: IncomingMessage & { query?: Record<string, string | string[]> },
@@ -32,16 +22,18 @@ export default async function handler(
         return sendJson(res, 400, { error: 'Invalid snapshot id' });
       }
 
-      const snapshot = await getOddsSnapshotById(snapshotId);
+      const snapshot = await timed('history.getSnapshot', () => getOddsSnapshotById(snapshotId));
       if (!snapshot) {
         return sendJson(res, 404, { error: 'Snapshot not found' });
       }
 
-      const insights = await getOddsSnapshotInsights(snapshotId);
+      const insights = await timed('history.getInsights', () => getOddsSnapshotInsights(snapshotId));
       return sendJson(res, 200, { ...snapshot, insights });
     }
 
-    const snapshots = await listOddsSnapshots(Number.isFinite(limit) ? limit : 30);
+    const snapshots = await timed('history.listSnapshots', () =>
+      listOddsSnapshots(Number.isFinite(limit) ? limit : 30)
+    );
     return sendJson(res, 200, { snapshots });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown server error';

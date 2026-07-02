@@ -1,8 +1,9 @@
 /** @jsx React.createElement */
 /** @jsxFrag React.Fragment */
 import React, { useMemo } from 'react';
-import type { ApiMatch, ApiQuotaUsage, ArbitrageOpportunity } from '../types';
+import type { ApiMatch, ApiQuotaUsage } from '../types';
 import CollapsibleSection from './CollapsibleSection';
+import { findArbitrageOpportunities } from '../services/arbitrageService';
 import { normalizeTeamName } from '../utils/teamNameNormalizer';
 
 const isDrawOutcome = (name: string) => {
@@ -17,68 +18,6 @@ const findTeamOutcome = (outcomes: { name: string; price: number }[], teamName: 
 
 const findDrawOutcome = (outcomes: { name: string; price: number }[]) => {
   return outcomes.find((o) => isDrawOutcome(o.name));
-};
-
-// This logic is duplicated from the ArbitragePanel to keep this component self-contained for debugging purposes.
-const findArbitrageOpportunities = (matches: ApiMatch[]): ArbitrageOpportunity[] => {
-  const opportunities: ArbitrageOpportunity[] = [];
-  if (!matches) return opportunities;
-
-  matches.forEach((match) => {
-    const homeTeam = normalizeTeamName(match.home_team);
-    const awayTeam = normalizeTeamName(match.away_team);
-    const bestOdds = {
-      home: { price: 0, bookmaker: '' },
-      away: { price: 0, bookmaker: '' },
-      draw: { price: 0, bookmaker: '' },
-    };
-
-    match.bookmakers.forEach((bookmaker) => {
-      const h2h = bookmaker.markets.find((m) => m.key === 'h2h');
-      if (!h2h) return;
-
-      const home = findTeamOutcome(h2h.outcomes, homeTeam);
-      const away = findTeamOutcome(h2h.outcomes, awayTeam);
-      const draw = findDrawOutcome(h2h.outcomes);
-
-      if (home && home.price > bestOdds.home.price) {
-        bestOdds.home = { price: home.price, bookmaker: bookmaker.title };
-      }
-
-      if (away && away.price > bestOdds.away.price) {
-        bestOdds.away = { price: away.price, bookmaker: bookmaker.title };
-      }
-
-      if (draw && draw.price > bestOdds.draw.price) {
-        bestOdds.draw = { price: draw.price, bookmaker: bookmaker.title };
-      }
-    });
-
-    const { home, away, draw } = bestOdds;
-
-    if (home.price > 0 && away.price > 0 && draw.price > 0) {
-      const impliedProbabilitySum = 1 / home.price + 1 / away.price + 1 / draw.price;
-
-      if (impliedProbabilitySum < 1) {
-        const profitPercentage = (1 / impliedProbabilitySum - 1) * 100;
-        const getStake = (price: number) => 1 / price / impliedProbabilitySum;
-
-        opportunities.push({
-          matchId: match.id,
-          matchTitle: `${homeTeam} vs ${awayTeam}`,
-          commenceTime: match.commence_time,
-          profitPercentage,
-          outcomes: [
-            { name: homeTeam, price: home.price, bookmaker: home.bookmaker, stakePercentage: getStake(home.price) },
-            { name: awayTeam, price: away.price, bookmaker: away.bookmaker, stakePercentage: getStake(away.price) },
-            { name: 'Draw', price: draw.price, bookmaker: draw.bookmaker, stakePercentage: getStake(draw.price) },
-          ],
-        });
-      }
-    }
-  });
-
-  return opportunities.sort((a, b) => b.profitPercentage - a.profitPercentage);
 };
 
 interface DebugPanelProps {

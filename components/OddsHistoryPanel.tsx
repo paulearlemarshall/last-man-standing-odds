@@ -12,6 +12,7 @@ import type {
   TeamFormTimelinePoint,
 } from '../types';
 import CollapsibleSection from './CollapsibleSection';
+import { apiFetch } from '../services/apiClient';
 
 type AnalyticsTab = 'raw' | 'team' | 'headToHead';
 
@@ -92,11 +93,11 @@ const OddsHistoryPanel: React.FC = () => {
     setLoadingList(true);
     setError(null);
     try {
-      const response = await fetch('/api/odds-history?limit=40', { signal: abortController.signal });
-      if (!response.ok) {
-        const details = await response.text();
-        throw new Error(`Failed to load snapshot list (${response.status}): ${details}`);
-      }
+      const response = await apiFetch(
+        '/api/odds-history?limit=40',
+        { signal: abortController.signal },
+        'Snapshot list API'
+      );
 
       const payload = (await response.json()) as { snapshots?: OddsSnapshotSummary[] };
       const nextSnapshots = Array.isArray(payload.snapshots) ? payload.snapshots : [];
@@ -139,14 +140,11 @@ const OddsHistoryPanel: React.FC = () => {
       setLoadingSnapshot(true);
       setError(null);
       try {
-        const response = await fetch(`/api/odds-history?id=${selectedSnapshotId}`, {
-          signal: abortController.signal,
-        });
-
-        if (!response.ok) {
-          const details = await response.text();
-          throw new Error(`Failed to load snapshot ${selectedSnapshotId} (${response.status}): ${details}`);
-        }
+        const response = await apiFetch(
+          `/api/odds-history?id=${selectedSnapshotId}`,
+          { signal: abortController.signal },
+          'Snapshot detail API'
+        );
 
         const payload = (await response.json()) as OddsSnapshotDetail;
         setSelectedSnapshot(payload);
@@ -180,14 +178,11 @@ const OddsHistoryPanel: React.FC = () => {
 
     const loadTeams = async () => {
       try {
-        const response = await fetch(`/api/odds-analytics?snapshotId=${selectedSnapshotId}`, {
-          signal: abortController.signal,
-        });
-
-        if (!response.ok) {
-          const details = await response.text();
-          throw new Error(`Failed to load team list (${response.status}): ${details}`);
-        }
+        const response = await apiFetch(
+          `/api/odds-analytics?snapshotId=${selectedSnapshotId}`,
+          { signal: abortController.signal },
+          'Team list API'
+        );
 
         const payload = (await response.json()) as { teams?: string[] };
         const nextTeams = Array.isArray(payload.teams) ? payload.teams : [];
@@ -231,15 +226,11 @@ const OddsHistoryPanel: React.FC = () => {
       setLoadingAnalytics(true);
       setAnalyticsError(null);
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/odds-analytics?snapshotId=${selectedSnapshotId}&team=${encodeURIComponent(selectedTeam)}&lookback=40&bucketMinutes=${ANALYTICS_BUCKET_MINUTES}&minDelta=${ANALYTICS_MIN_DELTA}`,
-          { signal: abortController.signal }
+          { signal: abortController.signal },
+          'Team form API'
         );
-
-        if (!response.ok) {
-          const details = await response.text();
-          throw new Error(`Failed to load team form (${response.status}): ${details}`);
-        }
 
         const payload = (await response.json()) as { teamForm?: TeamFormAnalytics };
         setTeamForm(payload.teamForm || null);
@@ -270,15 +261,11 @@ const OddsHistoryPanel: React.FC = () => {
       setLoadingAnalytics(true);
       setAnalyticsError(null);
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `/api/odds-analytics?snapshotId=${selectedSnapshotId}&teamA=${encodeURIComponent(teamA)}&teamB=${encodeURIComponent(teamB)}&lookback=40&bucketMinutes=${ANALYTICS_BUCKET_MINUTES}&minDelta=${ANALYTICS_MIN_DELTA}`,
-          { signal: abortController.signal }
+          { signal: abortController.signal },
+          'Head-to-head API'
         );
-
-        if (!response.ok) {
-          const details = await response.text();
-          throw new Error(`Failed to load head-to-head model (${response.status}): ${details}`);
-        }
 
         const payload = (await response.json()) as { headToHead?: HeadToHeadAnalytics };
         setHeadToHead(payload.headToHead || null);

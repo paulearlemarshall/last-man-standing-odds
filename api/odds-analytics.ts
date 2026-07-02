@@ -1,20 +1,10 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { normalizeQueryValue, sendJson, timed } from './_lib/http.js';
 import {
   getHeadToHeadAnalytics,
   getTeamFormAnalytics,
   listTrackedTeamsForSnapshot,
 } from './_lib/oddsSnapshotsStore.js';
-
-function normalizeQueryValue(value: string | string[] | undefined): string {
-  if (!value) return '';
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
-  res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(payload));
-}
 
 export default async function handler(
   req: IncomingMessage & { query?: Record<string, string | string[]> },
@@ -45,13 +35,15 @@ export default async function handler(
 
   try {
     if (teamA && teamB) {
-      const headToHead = await getHeadToHeadAnalytics(
-        snapshotId,
-        teamA,
-        teamB,
-        Number.isFinite(lookback) ? lookback : 30,
-        bucketMinutes,
-        minDelta
+      const headToHead = await timed('analytics.headToHead', () =>
+        getHeadToHeadAnalytics(
+          snapshotId,
+          teamA,
+          teamB,
+          Number.isFinite(lookback) ? lookback : 30,
+          bucketMinutes,
+          minDelta
+        )
       );
 
       if (!headToHead) {
@@ -62,12 +54,8 @@ export default async function handler(
     }
 
     if (team) {
-      const teamForm = await getTeamFormAnalytics(
-        snapshotId,
-        team,
-        Number.isFinite(lookback) ? lookback : 30,
-        bucketMinutes,
-        minDelta
+      const teamForm = await timed('analytics.teamForm', () =>
+        getTeamFormAnalytics(snapshotId, team, Number.isFinite(lookback) ? lookback : 30, bucketMinutes, minDelta)
       );
 
       if (!teamForm) {
@@ -77,7 +65,7 @@ export default async function handler(
       return sendJson(res, 200, { teamForm });
     }
 
-    const teams = await listTrackedTeamsForSnapshot(snapshotId);
+    const teams = await timed('analytics.listTeams', () => listTrackedTeamsForSnapshot(snapshotId));
     return sendJson(res, 200, { teams });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown server error';

@@ -1,4 +1,5 @@
 import { SPORTS_DIRECTORY, type LeagueDefinition } from '../constants/sportsDirectory';
+import { apiFetch } from './apiClient';
 
 interface ApiSport {
   key: string;
@@ -40,15 +41,7 @@ function toSportsDirectory(apiSports: ApiSport[]): SportsDirectory {
 }
 
 export async function fetchSportsDirectory(signal?: AbortSignal): Promise<SportsDirectory> {
-  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
-  const apiPath = '/api/sports';
-  const requestUrl = apiBaseUrl ? `${apiBaseUrl}${apiPath}` : apiPath;
-  const response = await fetch(requestUrl, { signal });
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Sports API returned ${response.status}: ${response.statusText}${details ? ` - ${details}` : ''}`);
-  }
+  const response = await apiFetch('/api/sports', { signal }, 'Sports API');
 
   const sports = (await response.json()) as ApiSport[];
   const directory = toSportsDirectory(sports);

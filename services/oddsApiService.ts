@@ -1,4 +1,5 @@
 import type { ApiMatch, ApiQuotaUsage, Region } from '../types';
+import { apiFetch, resolveApiUrl } from './apiClient';
 
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -74,7 +75,6 @@ export async function fetchOddsFromApi(
 
   // 3. Fetch missing regions
   if (regionsToFetch.length > 0) {
-    const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/$/, '');
     const sortedRegionsToFetch = [...regionsToFetch].sort();
     let quotaUsage: ApiQuotaUsage | null = null;
     let requestsLastTotal = 0;
@@ -89,14 +89,9 @@ export async function fetchOddsFromApi(
         });
 
         const apiPath = `/api/odds?${params.toString()}`;
-        const requestUrl = apiBaseUrl ? `${apiBaseUrl}${apiPath}` : apiPath;
-        console.log(`[API] Fetching missing region (${region}) via ${requestUrl}`);
-        const response = await fetch(requestUrl, { signal });
-
-        if (!response.ok) {
-          const details = await response.text();
-          throw new Error(`API returned ${response.status}: ${response.statusText}${details ? ` - ${details}` : ''}`);
-        }
+        const requestUrl = resolveApiUrl(apiPath);
+        if (import.meta.env.DEV) console.log(`[API] Fetching missing region (${region}) via ${requestUrl}`);
+        const response = await apiFetch(apiPath, { signal }, 'Odds API');
 
         const responseQuotaUsage = readQuotaUsage(response.headers);
         if (responseQuotaUsage.requestsLast !== null) {

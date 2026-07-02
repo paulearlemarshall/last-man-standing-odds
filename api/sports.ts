@@ -1,10 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-
-function sendJson(res: ServerResponse, statusCode: number, payload: unknown): void {
-  res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify(payload));
-}
+import { sendJson, timed } from './_lib/http.js';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'GET') {
@@ -21,12 +16,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const upstreamUrl = `https://api.the-odds-api.com/v4/sports/?${upstreamParams.toString()}`;
 
   try {
-    const response = await fetch(upstreamUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
+    const response = await timed('sports.upstream', () =>
+      fetch(upstreamUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+    );
 
     const responseText = await response.text();
 
